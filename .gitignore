@@ -1,0 +1,14 @@
+.env
+**/.env
+.venv/
+**/.venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+.vscode/
+
+# Tài liệu môn học và file cá nhân, không phải mã nguồn
+*.pdf
+*.docx
+*.xlsx
+*.pptx
