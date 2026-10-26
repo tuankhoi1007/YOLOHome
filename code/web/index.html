@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bảng điều khiển — Yolo:Home</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap">
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/app.css">
+  <link rel="stylesheet" href="css/dashboard.css">
+</head>
+<body>
+  <!-- Figma 11:593 (binh thuong), 11:1014 (canh bao), 11:1418 (mat ket noi). -->
+  <header class="app-header">
+    <div class="app-header-inner">
+      <div class="brand">
+        <a class="brand-mark" href="/">Yolo:Home</a>
+        <span class="brand-tag">AIoT<br>Architecture</span>
+        <span class="brand-divider" aria-hidden="true"></span>
+        <span class="brand-note">Mô hình Điều khiển &amp;<br>Giám sát Tự hành</span>
+      </div>
+      <div class="header-tools">
+        <div class="status-pill" id="gateway-pill" role="status">
+          <span class="status-dot" id="gateway-dot"></span>
+          <span id="gateway-text">Gateway: đang kết nối…</span>
+        </div>
+        <button class="tool-btn tool-btn-caps" type="button" id="test-offline" data-mock-only hidden>
+          <img src="img/icon-zap.svg" width="14" height="14" alt="">
+          <span id="test-offline-text">Test<br>Offline</span>
+        </button>
+        <button class="tool-btn" type="button" id="open-thresholds">
+          <img src="img/icon-sliders.svg" width="16" height="16" alt="">
+          <span>Cấu hình<br>ngưỡng</span>
+        </button>
+        <div class="profile">
+          <span class="avatar" aria-hidden="true">CN</span>
+          <span class="profile-text">
+            <span class="profile-name">Chủ nhà</span>
+            <button class="profile-logout" type="button" id="logout">Đăng xuất</button>
+          </span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- 13:10: hien khi mat ket noi Gateway hoac may chu web -->
+  <div class="conn-banner" id="conn-banner" role="alert" hidden>
+    <div class="conn-banner-inner">
+      <span class="conn-banner-icon" aria-hidden="true">⚠</span>
+      <strong id="conn-banner-title">Mất kết nối Adafruit IO / Gateway.</strong>
+      <span id="conn-banner-text">Các thông số hiển thị giá trị lưu lần cuối.</span>
+      <span class="conn-banner-spacer"></span>
+      <button class="conn-banner-retry" type="button" id="conn-retry">Thử kết nối lại →</button>
+    </div>
+  </div>
+
+  <main class="container">
+    <section class="page-hero">
+      <p class="caps page-eyebrow">Bảng điều khiển trung tâm</p>
+      <h1 class="page-title">Giám sát &amp; Điều phối Tư gia</h1>
+    </section>
+
+    <!-- 01: cam bien (Module 1-2) -->
+    <section class="section" aria-labelledby="sec-env">
+      <h2 class="section-label" id="sec-env">01 / Giám sát môi trường (DHT20 &amp; ánh sáng)</h2>
+      <div class="grid-3">
+        <article class="card metric metric-featured" id="metric-temp">
+          <div class="metric-top">
+            <span class="caps metric-name">Nhiệt độ phòng</span>
+            <span class="chip" data-role="chip">–</span>
+          </div>
+          <p class="metric-value"><span data-role="value">–</span><span class="metric-unit metric-unit-top">°C</span></p>
+          <p class="metric-desc">Đo từ cảm biến I2C DHT20. Cảnh báo khi &gt; <span data-role="limit">–</span>°C.</p>
+          <div class="metric-foot">
+            <span class="metric-age"><span class="dot" data-role="dot"></span><span data-role="age">–</span></span>
+            <span>Feed: nhiet-do</span>
+          </div>
+        </article>
+        <article class="card metric" id="metric-humid">
+          <div class="metric-top">
+            <span class="caps metric-name">Độ ẩm tương đối</span>
+            <span class="chip" data-role="chip">–</span>
+          </div>
+          <p class="metric-value"><span data-role="value">–</span><span class="metric-unit">%</span></p>
+          <p class="metric-desc">Độ ẩm trong phòng. Khuyến nghị 50% – 70%. Cảnh báo khi &gt; <span data-role="limit">–</span>%.</p>
+          <div class="metric-foot">
+            <span class="metric-age"><span class="dot" data-role="dot"></span><span data-role="age">–</span></span>
+            <span>Feed: do-am</span>
+          </div>
+        </article>
+        <article class="card metric" id="metric-light">
+          <div class="metric-top">
+            <span class="caps metric-name">Mức ánh sáng</span>
+            <span class="chip" data-role="chip">–</span>
+          </div>
+          <p class="metric-value"><span data-role="value">–</span><span class="metric-unit">/ 100</span></p>
+          <p class="metric-desc">Thang 0–100 từ cảm biến ánh sáng chân P0. Cảnh báo khi &lt; <span data-role="limit">–</span>.</p>
+          <div class="metric-foot">
+            <span class="metric-age"><span class="dot" data-role="dot"></span><span data-role="age">–</span></span>
+            <span>Feed: anh-sang</span>
+          </div>
+        </article>
+      </div>
+      <div class="card led-banner" id="led-banner">
+        <div class="led-banner-text">
+          <span class="led-dot" id="led-dot" aria-hidden="true"></span>
+          <strong id="led-title">Đèn LED RGB phần cứng (Chân P14):</strong>
+          <span id="led-text">–</span>
+        </div>
+        <button class="link-btn" type="button" id="sim-overheat" data-mock-only hidden>Mô phỏng vượt ngưỡng nhiệt độ</button>
+      </div>
+    </section>
+
+    <!-- 02: dieu khien thiet bi (Module 3). Trang thai tung the theo Figma 181:10. -->
+    <section class="section" aria-labelledby="sec-devices">
+      <h2 class="section-label" id="sec-devices">02 / Điều khiển thiết bị thủ công (độc lập AI)</h2>
+      <div class="grid-3" id="devices"></div>
+    </section>
+
+    <!-- 03: AI tren laptop Gateway -->
+    <section class="section" aria-labelledby="sec-ai">
+      <h2 class="section-label" id="sec-ai">03 / Trợ lý thông minh AIoT (chạy trên Gateway)</h2>
+      <div class="grid-ai" id="ai"></div>
+    </section>
+
+    <!-- 04: nhat ky (Module 4) -->
+    <section class="section" aria-labelledby="sec-log">
+      <h2 class="section-label" id="sec-log">04 / Nhật ký sự kiện hệ thống</h2>
+      <div class="card log-card">
+        <div class="log-tabs">
+          <div class="tabs" id="log-tabs" role="tablist" aria-label="Lọc nhật ký"></div>
+          <a class="link-btn" href="/log.html">Xem tất cả nhật ký →</a>
+        </div>
+        <div class="table-wrap" id="log-recent"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    <div class="app-footer-inner">
+      <p>© 2026 Yolo:Home — Nhóm 1, CO3107, Khoa Khoa học &amp; Kỹ thuật Máy tính, ĐH Bách Khoa TP.HCM.</p>
+      <p>MicroPython • Yolo:Bit • Adafruit IO</p>
+    </div>
+  </footer>
+
+  <!-- 28:1829: cau hinh nguong -->
+  <dialog class="modal" id="thresholds-dialog" aria-labelledby="thresholds-title">
+    <form class="modal-card" id="thresholds-form" method="dialog" novalidate>
+      <div class="modal-head">
+        <div>
+          <p class="modal-eyebrow">Cấu hình hệ thống</p>
+          <h2 class="modal-title" id="thresholds-title">Điều Chỉnh Ngưỡng Cảnh Báo</h2>
+        </div>
+        <button class="modal-close" type="button" id="thresholds-close" aria-label="Đóng">
+          <img src="img/icon-x.svg" width="16" height="16" alt="">
+        </button>
+      </div>
+      <label class="field">
+        <span class="field-label">Ngưỡng nhiệt độ tối đa (°C)</span>
+        <span class="field-input"><input type="number" name="temp_max" min="0" max="80" step="0.1" required><span class="field-suffix">°C</span></span>
+        <span class="field-hint">Bật LED đỏ và cảnh báo khi nhiệt độ vượt quá (0–80)</span>
+      </label>
+      <label class="field">
+        <span class="field-label">Ngưỡng độ ẩm tối đa (%)</span>
+        <span class="field-input"><input type="number" name="humid_max" min="0" max="100" step="1" required><span class="field-suffix">%</span></span>
+      </label>
+      <label class="field">
+        <span class="field-label">Ngưỡng ánh sáng tối thiểu (0–100)</span>
+        <span class="field-input"><input type="number" name="light_min" min="0" max="100" step="1" required><span class="field-suffix">/100</span></span>
+      </label>
+      <p class="form-error" id="thresholds-error" role="alert" hidden></p>
+      <div class="modal-actions">
+        <button class="btn-outline" type="button" id="thresholds-cancel">Hủy bỏ</button>
+        <button class="btn-gold" type="submit" id="thresholds-save">Lưu cấu hình</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Toast canh bao (11:1014) -->
+  <div class="toasts" id="toasts" aria-live="assertive"></div>
+
+  <script type="module" src="js/dashboard.js"></script>
+</body>
+</html>

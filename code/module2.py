@@ -9,6 +9,8 @@ Nguong mac dinh nam trong .env.
 Dashboard co the ghi de bang feed nguong-nhiet, nguong-am, nguong-sang.
 """
 
+import time
+
 import config
 from module1 import Reading, normalize_light
 
@@ -128,6 +130,64 @@ class AlertPublisher:
         self.last_text = alert.text
         print("Canh bao:", alert.text)
         return True
+
+
+# Ten truong nguong -> feed (PROTOCOL.md v0.1.1: web duoc ghi cac feed nay)
+THRESHOLD_FIELD_FEEDS = (
+    ("temp_max", config.FEED_TEMP_MAX),
+    ("humid_max", config.FEED_HUMID_MAX),
+    ("light_min", config.FEED_LIGHT_MIN),
+)
+
+
+class ThresholdPublisher:
+    """Ghi nguong do nguoi dung doi tren web len feed nguong-*.
+
+    Moi lan luu ton toi da 3 diem du lieu. Mot feed cach nhau it nhat 2 giay, de bam
+    luu lien tuc khong lam vuot 30 diem/phut cua Adafruit.
+    """
+
+    MIN_GAP = 2
+
+    def __init__(self, client, feed_keys=None, clock=time.time):
+        self.client = client
+        # Tap feed dang co tren tai khoan (ensure_feeds); None = khong biet, cu gui
+        self.feed_keys = feed_keys
+        self.clock = clock
+        self.last_time = {}
+
+    def changes(self, limits, values):
+        """values: {"temp_max": 30, ...}. Tra ve list (truong, feed, so) khac voi nguong hien tai."""
+        found = []
+        for field, feed in THRESHOLD_FIELD_FEEDS:
+            if field in values and values[field] != getattr(limits, field):
+                found.append((field, feed, values[field]))
+        return found
+
+    def too_soon(self, changes):
+        """True neu co feed vua gui chua du MIN_GAP giay."""
+        now = self.clock()
+        for field, feed, value in changes:
+            if now - self.last_time.get(feed, 0.0) < self.MIN_GAP:
+                return True
+        return False
+
+    def publish(self, changes):
+        """Gui tung thay doi. Tra ve (da_gui, thieu_feed): hai list ten feed."""
+        sent = []
+        missing = []
+        now = self.clock()
+        for field, feed, value in changes:
+            # Tai khoan khong co feed nay (gioi han 10 feed): khong gui, de Adafruit khong tu tao
+            if self.feed_keys is not None and feed not in self.feed_keys:
+                missing.append(feed)
+                continue
+            self.client.publish(config.topic(feed), payload=config.fmt_num(value))
+            self.last_time[feed] = now
+            sent.append(feed)
+        if sent:
+            print("Gui nguong tu web:", ", ".join(sent))
+        return sent, missing
 
 
 def take_cloud_value(feed, value, reading, limits):
