@@ -12,3 +12,7 @@ __pycache__/
 *.docx
 *.xlsx
 *.pptx
+
+# Cau hinh Claude Code ca nhan
+.claude/settings.local.json
+CLAUDE.local.md
