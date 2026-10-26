@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Thành phần — Yolo:Home</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/components.css">
+  <!-- Trang xem thanh phan, doi chieu voi Figma 180:20. Khong chua du lieu nen khong can dang nhap. -->
+  <link rel="stylesheet" href="css/components-page.css">
+</head>
+<body class="temp-components">
+  <main class="page stack">
+    <p class="eyebrow">Yolo:Home / UI States</p>
+    <h1 class="title">Thành phần dùng chung</h1>
+    <p class="lead">Button • Badge • Toggle — cùng font, màu và nhịp khoảng cách của dashboard.</p>
+    <div class="row">
+      <button class="btn btn-primary" type="button">Thực hiện</button>
+      <button class="btn btn-secondary" type="button">Thực hiện</button>
+      <button class="btn btn-primary" type="button" disabled>Thực hiện</button>
+      <button class="btn btn-primary" type="button" aria-busy="true">Thực hiện</button>
+      <button class="btn btn-secondary" type="button" id="focus-demo">Thực hiện</button>
+    </div>
+    <div class="row">
+      <span class="badge badge-ok">Đã kết nối</span>
+      <span class="badge badge-warn">Đã kết nối</span>
+      <span class="badge badge-danger">Đã kết nối</span>
+      <span class="badge badge-neutral">Đã kết nối</span>
+    </div>
+    <div class="row">
+      <button class="toggle" type="button" role="switch" aria-checked="true" aria-label="Bật"></button>
+      <button class="toggle" type="button" role="switch" aria-checked="false" aria-label="Tắt"></button>
+      <button class="toggle" type="button" role="switch" aria-checked="false" aria-label="Không dùng được" disabled></button>
+    </div>
+  </main>
+  <script type="module" src="js/components.js"></script>
+</body>
+</html>
