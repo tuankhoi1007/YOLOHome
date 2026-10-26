@@ -1,0 +1,6 @@
+/* Kieu cho trang xem thanh phan components.html (doi chieu Figma 180:20). */
+
+/* components.html */
+.temp-components .stack { display: grid; gap: var(--space-s-plus); }
+.temp-components .row { display: flex; flex-wrap: wrap; gap: var(--space-s-plus); align-items: center; }
+.temp-components .row .btn { width: 200px; }

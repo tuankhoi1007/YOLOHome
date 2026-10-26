@@ -1,0 +1,323 @@
+/* Trang nhat ky, Figma 7:97 (1440x1024). */
+
+/* ---------- Header rieng cua trang ---------- */
+.log-header {
+  border-bottom: var(--stroke) solid var(--line);
+  background: var(--white);
+}
+
+.log-header-inner {
+  display: flex;
+  align-items: center;
+  gap: 40px;
+  max-width: 1440px;
+  height: 76px;
+  margin: 0 auto;
+  padding: 0 var(--space-l);
+}
+
+.log-brand {
+  display: grid;
+}
+
+.log-logo {
+  color: var(--ink);
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.1;
+  text-decoration: none;
+}
+
+.log-logo span {
+  color: var(--gold);
+}
+
+.log-logo-sub {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.breadcrumb {
+  display: flex;
+  gap: 10px;
+  color: var(--muted);
+  font-size: var(--text-s);
+}
+
+.breadcrumb a {
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.breadcrumb a:hover {
+  color: var(--ink);
+}
+
+.breadcrumb span[aria-hidden] {
+  color: var(--gold);
+}
+
+.breadcrumb [aria-current] {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.log-user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+}
+
+.log-user-text {
+  display: grid;
+  justify-items: end;
+}
+
+.log-user-name {
+  font-size: var(--text-s);
+  font-weight: 600;
+}
+
+.log-user-logout {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--gold);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.log-avatar {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 2px solid var(--gold);
+  border-radius: var(--radius-full);
+  color: var(--gold);
+  font-size: var(--text-s);
+  font-weight: 700;
+}
+
+/* ---------- Noi dung ---------- */
+.log-page {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: var(--space-l);
+}
+
+.log-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-s);
+  color: var(--gold);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.log-eyebrow::before,
+.log-eyebrow::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+.log-title {
+  margin-top: var(--space-s-plus);
+  font-size: 40px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  line-height: 1.15;
+}
+
+.log-lead {
+  margin-top: var(--space-8);
+  color: var(--muted);
+  font-size: 18px;
+}
+
+.log-filters {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-s);
+  margin-top: 32px;
+  padding: var(--space-s);
+}
+
+.pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+}
+
+.pill {
+  min-height: 32px;
+  padding: 0 var(--space-s);
+  border: var(--stroke) solid var(--line);
+  border-radius: var(--radius-full);
+  background: var(--white);
+  color: var(--ink);
+  font-size: var(--text-s);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.pill[aria-selected="true"] {
+  border-color: var(--gold);
+  background: var(--gold);
+  color: var(--white);
+}
+
+.log-filter-tools {
+  display: flex;
+  gap: 12px;
+}
+
+.filter-input {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  height: 36px;
+  padding: 0 var(--space-s);
+  border: var(--stroke) solid var(--line);
+  border-radius: var(--radius-s);
+  background: var(--white);
+}
+
+.filter-input:focus-within {
+  border-color: var(--gold);
+}
+
+.filter-input input {
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  font-size: var(--text-s);
+}
+
+.filter-search {
+  width: 260px;
+}
+
+.filter-search input {
+  flex: 1;
+}
+
+.log-table-card {
+  margin-top: 32px;
+}
+
+.table-page th {
+  padding: 14px var(--space-s-plus);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.table-page td {
+  padding: 16px var(--space-s-plus);
+  font-size: var(--text-s);
+  line-height: 20px;
+}
+
+.table-page .col-time {
+  color: var(--ink);
+}
+
+.table-page .col-source {
+  color: var(--muted);
+}
+
+.log-type {
+  font-weight: 600;
+}
+
+.status-tag {
+  display: inline-block;
+  padding: 3px var(--space-8);
+  border-radius: var(--radius-xs);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.status-ok {
+  background: var(--ok-bg);
+  color: var(--ok-ink);
+}
+
+.status-danger {
+  background: var(--danger-bg);
+  color: var(--danger-ink);
+}
+
+.log-pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-s);
+  margin-top: 32px;
+}
+
+.log-count {
+  color: var(--muted);
+  font-size: var(--text-s);
+}
+
+.log-count strong {
+  color: var(--ink);
+}
+
+.pager {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+.page-btn {
+  display: grid;
+  place-items: center;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 var(--space-8);
+  border: var(--stroke) solid var(--line);
+  border-radius: var(--radius-s);
+  background: var(--white);
+  font-size: var(--text-s);
+  cursor: pointer;
+}
+
+.page-btn[aria-current="page"] {
+  border-color: var(--gold);
+  background: var(--gold);
+  color: var(--white);
+}
+
+.page-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.page-gap {
+  color: var(--muted);
+}
+
+/* Man hinh laptop hep (D12) */
+@media (max-width: 1100px) {
+  .log-filters {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

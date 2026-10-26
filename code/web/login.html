@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Đăng nhập — Yolo:Home</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/login.css">
+</head>
+<body class="login-page">
+  <!-- Figma 5:4. Bo o email va "Quen mat khau" vi dang nhap bang mot mat khau chung (D10). -->
+  <main class="login-panel">
+    <form class="login-card" id="login-form" novalidate>
+      <header class="login-heading">
+        <h1 class="login-title">Chào mừng trở lại</h1>
+        <p class="login-subtitle">Hệ thống quản trị không gian thông minh</p>
+      </header>
+
+      <div class="login-field">
+        <label class="login-label" for="password">Mật khẩu</label>
+        <div class="login-input-wrap">
+          <input class="login-input" id="password" name="password" type="password" autocomplete="current-password" required autofocus>
+          <button class="login-eye" id="toggle-password" type="button" aria-label="Hiện mật khẩu" aria-pressed="false">
+            <img src="img/icon-eye-off.svg" width="16" height="16" alt="">
+          </button>
+        </div>
+      </div>
+
+      <p class="login-error" id="login-error" role="alert" hidden>
+        <img src="img/icon-alert-circle.svg" width="14" height="14" alt="">
+        <span id="login-error-text"></span>
+      </p>
+
+      <button class="login-submit" type="submit" id="login-submit">Đăng nhập</button>
+    </form>
+  </main>
+
+  <aside class="login-hero" aria-hidden="true">
+    <div class="login-hero-top">
+      <span class="login-brand"><img src="img/dot-gold.svg" width="8" height="8" alt="">Yolohome AIoT</span>
+      <span class="login-version">V.02.4</span>
+    </div>
+    <div class="login-poetry">
+      <p class="login-wordmark">Yolo:Home</p>
+      <img src="img/line-gold.svg" width="80" height="2" alt="">
+      <p class="login-quote">"Sự tĩnh tại và tự hành của không gian sống đương đại."</p>
+    </div>
+    <div class="login-hero-bottom">
+      <span>Kitsune Studio · 2025</span>
+      <span>All rights reserved</span>
+    </div>
+  </aside>
+  <script type="module" src="js/login.js"></script>
+</body>
+</html>

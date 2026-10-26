@@ -1,0 +1,62 @@
+/* Token tu Figma "Yolo / 00 Foundations" (180:20). Ten Figma ghi o cuoi dong.
+   Doi mau o day, khong viet ma mau truc tiep trong file khac. */
+:root {
+  /* mau */
+  --gold: #b8860b;          /* color/orange/38 */
+  --ink: #1a1a1a;           /* color/grey/10 */
+  --muted: #6b6b6b;         /* color/grey/42 */
+  --white: #ffffff;         /* color/white/solid */
+  --line: #e8e4df;          /* color/orange/89 */
+  --surface: #f5f3f0;       /* color/grey/95 */
+  --bg: #fafaf8;            /* color/grey/98 */
+  --ok-ink: #166534;        /* color/spring green/24 */
+  --ok-bg: #f0fdf4;         /* color/grey/97 */
+  --warn-ink: #92400e;      /* color/orange/31 */
+  --warn-bg: #fffbeb;       /* color/grey/96 */
+  --danger-ink: #b91c1c;    /* color/red/42 */
+  --danger-bg: #fef2f2;     /* color/grey/97 2 */
+  --danger-strong: #991b1b; /* chu loi dang nhap (5:37) */
+  --shade: rgba(26, 26, 26, 0.4); /* lop toi tren anh (5:5) */
+
+  /* tu khung dashboard 11:593 / 11:1014 / 11:1418 */
+  --ok-line: #bbf7d0;       /* vien chip xanh */
+  --warn-line: #fde68a;     /* vien chip vang */
+  --warn-ink-2: #b45309;    /* chu chip vang */
+  --danger-line: #fecaca;   /* vien the canh bao */
+  --danger-dot: #dc2626;    /* dau canh bao, LED do */
+  --danger-deep: #7f1d1d;   /* chu phu banner mat ket noi */
+  --live: #10b981;          /* cham xanh "dang song" */
+  --live-ring: #d1fae5;
+  --danger-ring: #fee2e2;
+  --gold-15: rgba(184, 134, 11, 0.15);
+  --gold-30: rgba(184, 134, 11, 0.3);
+  --header-bg: rgba(250, 250, 248, 0.95);
+  --overlay: rgba(26, 26, 26, 0.6);
+  --shadow-card: 0 1px 1px rgba(26, 26, 26, 0.04);
+  --shadow-pop: 0 12px 32px rgba(26, 26, 26, 0.12);
+
+  /* khoang cach: item spacing/xxs, 8, s, s+, l */
+  --space-xxs: 4px;
+  --space-8: 8px;
+  --space-s: 16px;
+  --space-s-plus: 24px;
+  --space-l: 48px;
+
+  /* bo goc va net */
+  --radius-s: 6px;          /* o nhap, nut trang dang nhap (5:4) */
+  --radius-xs: 4px;         /* chip trong the (11:626) */
+  --radius: 8px;            /* corner radius/8 */
+  --radius-m: 12px;         /* modal, toast */
+  --radius-l: 16px;         /* the dang nhap (5:22) */
+  --radius-full: 9999px;    /* corner radius/9999 */
+  --stroke: 1px;            /* stroke weight/1 */
+
+  /* chu */
+  --font: "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --text-2xs: 11px;
+  --text-xs: 12px;
+  --text-s: 14px;
+  --text-m: 16px;
+  --text-title: 30px;
+  --leading: 1.5;
+}
