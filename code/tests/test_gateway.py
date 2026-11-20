@@ -6,6 +6,8 @@ Cong COM va MQTT la gia (FakeSerial, FakeClient): khong mo cong that, khong ra I
 """
 
 import os
+import tempfile
+from pathlib import Path
 
 FAKE_ENV = {
     "AIO_USERNAME": "test-user",
@@ -23,6 +25,13 @@ import unittest  # noqa: E402
 from unittest import mock  # noqa: E402
 
 import config  # noqa: E402
+
+# Khong doc/ghi data/runtime that khi test import nham file trang thai.
+_TEST_RUNTIME = Path(tempfile.mkdtemp(prefix="yolohome-gw-"))
+config.FACE_STATUS_PATH = _TEST_RUNTIME / "status.json"
+config.FACE_LOG_PATH = _TEST_RUNTIME / "face.jsonl"
+config.DOOR_CMD_PATH = _TEST_RUNTIME / "door.json"
+
 import gateway  # noqa: E402
 import web_gateway  # noqa: E402
 import web_live  # noqa: E402
@@ -102,6 +111,10 @@ def make_gateway(lines, listener=None):
     gw.client = FakeClient()
     gw.sensors = SensorPublisher(gw.client)
     gw.alerts = AlertPublisher(gw.client)
+    # Khong ghi file runtime that trong luc test.
+    gw.status_path = None
+    gw.log_path = None
+    gw.cmd_path = None
     return gw
 
 
@@ -181,9 +194,13 @@ class FakeGateway:
     def __init__(self):
         self.client = FakeClient()
         self.thresholds = []
+        self.door_requests = []
 
     def set_threshold(self, feed, value):
         self.thresholds.append((feed, value))
+
+    def request_door(self, locked, source):
+        self.door_requests.append((locked, source))
 
 
 class Recorder:
@@ -300,6 +317,101 @@ class LiveWritesAndHistoryTest(unittest.TestCase):
         self.assertEqual(config._epoch({"created_epoch": 1700000000}), 1700000000.0)
         self.assertEqual(config._epoch({"created_at": "2023-11-14T22:13:20Z"}), 1700000000.0)
         self.assertIsNone(config._epoch({}))
+
+
+class DoorAndFaceTest(unittest.TestCase):
+    def test_unlock_ack_then_relock(self):
+        from door import format_pin_command, parse_servo_pin
+
+        clock = FakeClock()
+        gw = make_gateway(["DOOR:OPEN", "DOOR:CLOSE"])
+        gw.clock = clock
+        gw.last_seen = clock()
+        gw.request_door(False, "test")
+        step(gw)
+        pin = parse_servo_pin(config.SERVO_PIN)
+        self.assertEqual(gw.ser.written[0], (format_pin_command(pin) + "\n").encode("ascii"))
+        self.assertIn(b"DOOR:OPEN\n", gw.ser.written)
+        self.assertFalse(gw.door.locked)
+        clock.advance(config.DOOR_OPEN_SECONDS)
+        step(gw)
+        self.assertIn(b"DOOR:CLOSE\n", gw.ser.written)
+        self.assertTrue(gw.door.locked)
+
+    def test_rejected_face_stays_shut_until_manual_unlock(self):
+        clock = FakeClock()
+        events = Recorder()
+        gw = make_gateway(["T:25,H:40,L:50", "DOOR:OPEN"])
+        gw.clock = clock
+        gw.last_seen = clock()
+        home = web_gateway.GatewayHome(events, clock=clock, connect=False, gateway=gw)
+        gw.listener = home
+        gw.submit_face("attempt", {
+            "ok": False,
+            "name": "An",
+            "score": 0.12,
+            "threshold": 0.36,
+            "metric": "cosine",
+            "model": "sface",
+            "confidence": 12.0,
+            "at": clock(),
+        })
+        step(gw)
+        home.tick()
+        self.assertTrue(gw.door.locked)
+        self.assertNotIn(b"DOOR:OPEN\n", gw.ser.written)
+        self.assertEqual(home.log(kind="face")["total"], 1)
+        self.assertEqual(home.log(kind="face")["items"][0]["status"], "Từ chối")
+        self.assertFalse(home.snapshot()["features"]["devices"])
+        self.assertTrue(home.snapshot()["features"]["door"])
+        self.assertTrue(home.snapshot()["features"]["face"])
+        with self.assertRaises(CommandError):
+            home.command("light", {"on": True})
+        home.command("door", {"action": "unlock"})
+        step(gw)
+        home.tick()
+        self.assertFalse(home.snapshot()["devices"]["door"]["locked"])
+
+    def test_accepted_face_opens_door_and_is_logged(self):
+        clock = FakeClock()
+        events = Recorder()
+        gw = make_gateway(["DOOR:OPEN"])
+        gw.clock = clock
+        gw.last_seen = clock()
+        home = web_gateway.GatewayHome(events, clock=clock, connect=False, gateway=gw)
+        gw.listener = home
+        gw.submit_face("attempt", {
+            "ok": True,
+            "name": "An",
+            "score": 0.72,
+            "threshold": 0.36,
+            "metric": "cosine",
+            "model": "sface",
+            "confidence": 72.0,
+            "at": clock(),
+        })
+        step(gw)
+        home.tick()
+        self.assertFalse(gw.door.locked)
+        self.assertTrue(events.last("face")["ok"])
+        self.assertEqual(home.log(kind="face")["items"][0]["status"], "Thành công")
+        self.assertIn("An", home.log(kind="face")["items"][0]["detail"])
+        self.assertFalse(home.snapshot()["devices"]["door"]["locked"])
+
+    def test_live_command_file_opens_door_once(self):
+        from runtime_store import write_door_command
+
+        clock = FakeClock()
+        gw = make_gateway(["DOOR:OPEN", "T:25,H:40,L:40"])
+        gw.clock = clock
+        gw.last_seen = clock()
+        gw.cmd_path = _TEST_RUNTIME / "cmd-once.json"
+        write_door_command(gw.cmd_path, False, "Giao diện web")
+        step(gw)
+        self.assertFalse(gw.door.locked)
+        step(gw)
+        opens = [item for item in gw.ser.written if item == b"DOOR:OPEN\n"]
+        self.assertEqual(opens, [b"DOOR:OPEN\n"])
 
 
 if __name__ == "__main__":

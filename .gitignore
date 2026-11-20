@@ -16,3 +16,7 @@ __pycache__/
 # Cau hinh Claude Code ca nhan
 .claude/settings.local.json
 CLAUDE.local.md
+
+# Anh khuon mat va model nhan dien (du lieu sinh trac). Khong commit.
+code/data/
+code/models/

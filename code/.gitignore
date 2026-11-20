@@ -2,3 +2,7 @@
 __pycache__/
 *.pyc
 .venv/
+
+# Anh mat va model. Thu muc nay co the chua khuon mat that.
+data/
+models/

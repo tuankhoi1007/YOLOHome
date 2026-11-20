@@ -1,0 +1,9 @@
+﻿model,label,precision,recall,support
+lbph,mau_a,1.0,1.0,4
+lbph,mau_b,1.0,1.0,4
+lbph,mau_c,1.0,1.0,4
+lbph,mau_d,1.0,1.0,4
+sface,mau_a,1.0,1.0,4
+sface,mau_b,1.0,1.0,4
+sface,mau_c,1.0,1.0,4
+sface,mau_d,1.0,1.0,4

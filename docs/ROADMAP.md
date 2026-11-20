@@ -46,9 +46,9 @@ Effort in brackets is the suggested plan level; the agent re-proposes per subtas
 
 ## Phase 6 — Face recognition (main AI)
 
-- [ ] 6.1 Settle D7 (approach, library); plan dataset and internal test set. `[max]`
-- [ ] 6.2 Enrol members, train, evaluate on the internal test set; record real accuracy. `[max]`
-- [ ] 6.3 Correct face → servo opens door; wrong/failed → stays closed, UI button still works. `[high]`
+- [x] 6.1 Settle D7 (approach, library); plan dataset and internal test set. `[max]` → `plans/phase-6-face.md`
+- [ ] 6.2 Enrol members, train, evaluate on the internal test set; record real accuracy. The pipeline is in the repo. This stays open until real photos replace `docs/face/smoke`. `[max]`
+- [ ] 6.3 Correct face → servo opens door; wrong/failed → stays closed, UI button still works. Code and fake-serial tests are in the repo. Not hardware-verified. `[high]`
 - [ ] **Gate 6:** owner reviews the evaluation numbers and the fallback.
 
 ## Phase 7 — Vietnamese voice commands
@@ -73,9 +73,9 @@ Open rows are the owner's to answer. The agent does not decide them, and does no
 | D1 | Which Figma file and account? | Closed 2026-10-26 | Account `pnghia`, file DADN `capP3RVGqyp3EogAk90l6a`, not the copy | — |
 | D2 | Where does AI run? | Closed (spec) | Laptop gateway, webcam and mic of the laptop; never on the board | — |
 | D3 | Share the 4 RGB LEDs on P14 between the alert (Module 2) and the manual light (Module 3), or move the alert to the 5x5 matrix only? | Open | | Phase 2 |
-| D4 | Which ports for the fan relay and the servo? (Not P0, not P14.) | Open | | Phase 2 |
+| D4 | Which ports for the fan relay and the servo? (Not P0, not P14.) | Open | Servo code defaults to P4 (`SERVO_PIN`, `DOOR:PIN`) so the face demo can be wired. Not a decision: change the pin when this row closes. Fan still has no port. | Phase 2 |
 | D5 | Where is the Module 4 log stored? Feeds are 10/10 after Module 3. | Open | | Phase 4 |
 | D6 | Web stack, and how does the browser control Adafruit without exposing `AIO_KEY`? | Open | | Phase 5 web |
-| D7 | Face recognition approach and library. | Open | | Phase 6 |
+| D7 | Face recognition approach and library. | Closed 2026-11-20 | Laptop only. Compare OpenCV LBPH and YuNet + SFace (opencv-contrib, CPU, no dlib). Deploy the model with the lower false-accept rate, then fewer misidentifications, then lower false reject. Threshold and weights come from `face_train.py` on the team's photos, not from the synthetic smoke test. | — |
 | D8 | Vietnamese speech engine (offline or online). | Open | | Phase 7 |
 | D9 | Test framework: stdlib `unittest`, no new dependency. | Proposed | | 1.1 |

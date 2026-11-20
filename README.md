@@ -179,6 +179,7 @@ Dùng để xem và thử giao diện khi không có board. Không gửi gì lê
 | `WEB_DATA=live` + `web_server.py` | Khi `gateway.py` đang chạy riêng (cửa sổ khác hoặc máy khác). Web chỉ đọc số từ Adafruit, mất kết nối nếu 45 giây không có số mới. Không chạy chung với `WEB_DATA=gateway`. |
 | `.\.venv\Scripts\python.exe module1.py` | Chỉ đẩy cảm biến lên Adafruit, không so ngưỡng, không đổi đèn. |
 | `.\.venv\Scripts\python.exe module2.py` | Không cần board. Nghe số đang có trên Adafruit rồi cập nhật `canh-bao`. Tắt gateway trước. Thử: thêm một điểm vào `nhiet-do` lớn hơn ngưỡng trên Adafruit. |
+| `face_capture.py`, `face_train.py` | Nhận diện mặt. Lệnh PowerShell nằm ở mục 6 của `code/HUONG_DAN.md`. `--smoke` chỉ để thử pipeline. |
 
 Đổi ngưỡng không cần sửa code: dùng nút **Cấu hình ngưỡng** trên web, hoặc trên Adafruit mở feed `nguong-nhiet` → **Add Data** → ghi số mới. Gateway đang chạy nhận ngay.
 
@@ -200,11 +201,13 @@ Những gì có dữ liệu thật ở chế độ `gateway` / `live`:
 | Phần | Trạng thái |
 | --- | --- |
 | Nhiệt độ, độ ẩm, ánh sáng, cảnh báo, đèn LED cảnh báo | Có (Module 1–2) |
-| Cấu hình ngưỡng | Có, lưu thẳng lên feed `nguong-*` (`docs/PROTOCOL.md` v0.1.1). Feed nào tài khoản chưa có thì web báo rõ, không tự tạo |
+| Cấu hình ngưỡng | Có, lưu thẳng lên feed `nguong-*` (`docs/PROTOCOL.md` v0.1.2). Feed nào tài khoản chưa có thì web báo rõ, không tự tạo |
 | Nhật ký cảm biến | Có, lấy lịch sử từ Adafruit mỗi lần mở web |
 | Nhật ký điều khiển, cảnh báo | Chỉ trong RAM, tắt web là mất (nơi lưu lâu dài chưa chốt, D5) |
-| Đèn, quạt, cửa | "Chưa có": chờ Module 3 (`PROTOCOL.md` v0.2.0) |
-| Khuôn mặt, giọng nói | "Chưa có": chờ Phase 6, Phase 7 |
+| Đèn, quạt | "Chưa có": chờ Module 3 (`PROTOCOL.md` v0.2.0) |
+| Cửa | Có khi `WEB_DATA=gateway` (lệnh USB `DOOR:OPEN` / `DOOR:CLOSE`). `live` gửi lệnh qua file cho `gateway.py`. Mock vẫn giả lập. Chân servo mặc định P4, chưa chốt (D4) |
+| Khuôn mặt | Có khi `FACE_ENABLE=1` và đã train (`code/HUONG_DAN.md` mục 6). Mặc định tắt. Mock vẫn có nút mô phỏng |
+| Giọng nói | "Chưa có": chờ Phase 7 |
 
 Sai mật khẩu 5 lần trong 1 phút thì bị chặn 1 phút. Phiên đăng nhập giữ 12 giờ; tắt `web_server.py` thì phải đăng nhập lại.
 
@@ -229,6 +232,8 @@ Sai mật khẩu 5 lần trong 1 phút thì bị chặn 1 phút. Phiên đăng n
 | Web báo mất kết nối (`live`) | `gateway.py` chưa chạy hoặc board không gửi số. |
 | `Sai quá nhiều lần` trên trang đăng nhập | Đợi 1 phút rồi thử lại. |
 | `py` không phải là lệnh | Chưa cài Python cho Windows từ [python.org](https://www.python.org/downloads/), nhớ tick "Add to PATH". |
+| Nút cửa trên web chờ mãi rồi báo hết giờ | Board đang chạy bản `yolobit.py` cũ, chưa có `DOOR:`. Nạp lại file, lưu, ngắt OhStem, chạy lại. |
+| `Nhan dien: tat` hoặc thẻ mặt "chưa sẵn sàng" | `FACE_ENABLE` đang là 0, hoặc chưa có `code/models/face/chosen.json`. Chụp và train theo `code/HUONG_DAN.md` mục 6. Nút cửa vẫn bấm được. |
 
 ---
 
@@ -243,7 +248,7 @@ Sai mật khẩu 5 lần trong 1 phút thì bị chặn 1 phút. Phiên đăng n
 | 4 LED RGB | **P14**. Không cắm chung P0 |
 | Ma trận 5x5 | Có sẵn trên Yolo:Bit |
 
-Không gán thiết bị mới vào P0 hoặc P14. Cổng cho quạt và servo chưa chốt (D4 trong `docs/ROADMAP.md`).
+Không gán thiết bị mới vào P0 hoặc P14. Quạt chưa có cổng (D4). Servo cửa mặc định **P4** (`SERVO_PIN`), đổi được khi nhóm chốt D4.
 
 ### Luồng dữ liệu
 
@@ -251,7 +256,7 @@ Không gán thiết bị mới vào P0 hoặc P14. Cổng cho quạt và servo c
 flowchart LR
   dht[DHT20 + anh sang P0] --> yolo[yolobit.py tren board]
   yolo -- "USB: T:31.2,H:60,L:44" --> gw[Gateway tren laptop]
-  gw -- "USB: LED:RED / LED:GREEN" --> yolo
+  gw -- "USB: LED:RED / LED:GREEN va DOOR:OPEN / DOOR:CLOSE" --> yolo
   gw -- MQTT --> aio[Adafruit IO]
   aio -- "nguong-*" --> gw
   gw --> web[Web 127.0.0.1:8000]
@@ -265,13 +270,17 @@ flowchart LR
 
 - Board → laptop: `T:31.2,H:60,L:44` (`T` °C, `H` %, `L` 0–100; thiếu một phần vẫn hợp lệ). JSON một dòng cũng được nhận.
 - Laptop → board: `LED:RED` (vượt ngưỡng: ma trận sáng hết, RGB nháy đỏ) hoặc `LED:GREEN` (bình thường).
+- Laptop → board: `DOOR:PIN:P4` một lần, rồi `DOOR:OPEN` / `DOOR:CLOSE`. Board trả `DOOR:OPEN`, `DOOR:CLOSE`, `DOOR:PIN:...` hoặc `DOOR:ERR`. Chi tiết ở `docs/PROTOCOL.md` v0.1.2. Không thêm feed Adafruit.
 - Board trả `RGB:RED` / `RGB:GREEN` sau khi đổi đèn; gateway bỏ qua dòng này.
 
 ### Thư mục `code`
 
 | File | Chạy ở đâu / để làm gì |
 | --- | --- |
-| `yolobit.py` | Trên board (dán vào OhStem). Đọc cảm biến, vẽ đèn, nghe lệnh LED. |
+| `yolobit.py` | Trên board (dán vào OhStem). Đọc cảm biến, vẽ đèn, nghe lệnh LED và cửa. Không chạy file này trên laptop. |
+| `face_capture.py` | Laptop. Chụp ảnh mặt vào `data/faces/` (gitignore). |
+| `face_train.py` | Laptop. So sánh LBPH và SFace, ghi `docs/face/`. `--smoke` là họa tiết, không phải độ chính xác thật. |
+| `door.py`, `face_engine.py`, `face_runtime.py`, `face_metrics.py`, `face_study.py`, `runtime_store.py` | Không chạy riêng. Thư viện cho train và cho gateway. |
 | `web_server.py` | Laptop. Web + (khi `WEB_DATA=gateway`) Module 1–2. **Lệnh chính khi demo.** |
 | `gateway.py` | Laptop. Module 1 + 2 không có web. Web dùng lại đúng vòng này. |
 | `module1.py`, `module2.py` | Laptop. Chạy riêng từng module để thử. |
@@ -301,10 +310,10 @@ Phải in `OK`. Chạy trước khi đẩy code lên nhánh chung.
 | --- | --- |
 | Module 1 — thu thập môi trường | Chạy được (board → laptop → Adafruit → web) |
 | Module 2 — ngưỡng và cảnh báo | Chạy được (LED đổi màu, `canh-bao`, chỉnh ngưỡng trên web) |
-| Module 3 — điều khiển đèn, quạt, cửa | Chưa có. Giao diện đã có (chạy ở `mock`); chờ chốt D3, D4 và `PROTOCOL.md` v0.2.0 |
-| Module 4 — nhật ký | Một phần: lịch sử cảm biến từ Adafruit; nhật ký điều khiển/khuôn mặt chờ D5 |
-| Module 5 — giao diện | Web đủ màn hình theo Figma; dashboard Adafruit dựng theo `docs/ADAFRUIT_DASHBOARD.md` |
-| Nhận diện khuôn mặt | Chưa có (Phase 6). Cửa luôn mở được bằng nút trên web |
+| Module 3 — điều khiển đèn, quạt, cửa | Đèn và quạt chưa có (chờ D3, D4, `PROTOCOL.md` v0.2.0). Cửa servo có lệnh USB cho nhận diện mặt, chân mặc định P4 |
+| Module 4 — nhật ký | Một phần: lịch sử cảm biến từ Adafruit; lần nhận diện nằm trong RAM và `code/data/runtime/face_log.jsonl`. Nơi lưu lâu dài chưa chốt (D5) |
+| Module 5 — giao diện | Web đủ màn hình theo Figma; thẻ mặt và cửa hiện trạng thái thật khi `FACE_ENABLE=1`. Mock vẫn giả lập |
+| Nhận diện khuôn mặt | Pipeline đã có (mục 6 của `code/HUONG_DAN.md`). Chưa có ảnh người, chưa đo accuracy thật, chưa kiểm tra servo trên board. Nút cửa vẫn mở được khi nhận diện từ chối |
 | Giọng nói tiếng Việt | Chưa có (Phase 7). Lệnh cố định, không dùng LLM |
 | LCD 16x2 | Chỉ có trong bản thử `board_main_backup.py` |
 
