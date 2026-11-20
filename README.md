@@ -32,7 +32,7 @@ Tài liệu liên quan: đặc tả [User_Requirements.md](User_Requirements.md)
 | Xem và thử giao diện web, không có board trong tay | Không | Mục 2 → 6 |
 | Chạy gateway không có web (như trước đây) | Có | Mục 2 → 3 → 4 → 7 |
 
-Mọi lệnh bên dưới chạy trong **PowerShell** trên Windows, trong thư mục `code`.
+Mọi lệnh bên dưới viết cho **PowerShell** trên Windows, chạy trong thư mục `code`. Dùng **Linux / macOS**: thay `.\.venv\Scripts\python.exe` bằng `./.venv/bin/python`; phần cài đặt riêng cho Linux nằm ở mục 2 và 4.
 
 ---
 
@@ -49,13 +49,26 @@ copy .env.example .env
 
 > Luôn chạy bằng `.\.venv\Scripts\python.exe`, không gõ `python` trần. Trên một số máy, `python` là bản của MSYS2 và không có pip.
 
-Mở file `code\.env` bằng Notepad/VS Code và điền:
+**Linux / macOS** (bash):
+
+```bash
+cd code
+python3 -m venv .venv
+./.venv/bin/python -m pip install -r requirements.txt
+cp .env.example .env
+```
+
+> - Ubuntu/Debian báo thiếu `venv`: `sudo apt install python3-venv python3-pip`.
+> - Luôn chạy bằng `./.venv/bin/python`, không gõ `python` trần (nhiều distro chỉ có `python3`).
+> - **WSL2** (Linux chạy trong Windows): WSL không thấy cổng USB sẵn. Muốn dùng board thật, cài [usbipd-win](https://learn.microsoft.com/windows/wsl/connect-usb) rồi gắn Yolo:Bit vào WSL (`usbipd attach --wsl --busid <BUSID>`); không thì chạy chế độ giả lập ở mục 6. Trình duyệt ở Windows vẫn mở được `http://127.0.0.1:8000` của web chạy trong WSL2.
+
+Mở file `code/.env` bằng Notepad/VS Code (Linux: `nano`, `gedit`, VS Code...) và điền:
 
 | Dòng | Điền gì |
 | --- | --- |
 | `AIO_USERNAME` | Username Adafruit IO của nhóm |
 | `AIO_KEY` | **Active Key** (biểu tượng chìa khóa vàng trên [io.adafruit.com](https://io.adafruit.com)), không phải mật khẩu đăng nhập |
-| `COM_PORT` | Để tạm. Điền ở mục 4, khi OhStem hiện tên cổng (thường `COM11`, `COM12`; mỗi máy một khác) |
+| `COM_PORT` | Để tạm. Điền ở mục 4, khi OhStem hiện tên cổng (Windows thường `COM11`, `COM12`; Linux `/dev/ttyACM0` hoặc `/dev/ttyUSB0`; macOS `/dev/cu.usbmodem...`; mỗi máy một khác) |
 | `WEB_PASSWORD` | Mật khẩu **riêng** để đăng nhập web. Không dùng lại `AIO_KEY` |
 | `WEB_DATA` | `mock`, `gateway` hoặc `live` (xem mục 5–7) |
 
@@ -94,6 +107,9 @@ Chỉ cần làm một lần cho tài khoản của nhóm. Tên phải đúng c�
 2. Mở [app.ohstem.vn](https://app.ohstem.vn) bằng Chrome hoặc Edge, chọn **Yolo:Bit**, bấm kết nối **USB**.
 3. Ghi lại tên cổng COM hiện ra. Không thấy cổng thì cài driver tại [ohstem.vn/driver](https://ohstem.vn/driver) rồi cắm lại.
 4. Sửa `COM_PORT` trong `code\.env` cho trùng cổng đó, lưu file.
+   - **Linux**: OhStem trên Chrome/Edge không hiện tên cổng kiểu `/dev/...`. Rút cáp, chạy `ls /dev/ttyACM* /dev/ttyUSB*`, cắm lại, chạy lệnh lần nữa; cổng mới xuất hiện là `COM_PORT` (ví dụ `COM_PORT=/dev/ttyACM0`). Hoặc xem `dmesg | tail`.
+   - **Linux, quyền truy cập**: nếu báo `Permission denied`, thêm tài khoản vào nhóm `dialout` rồi **đăng xuất và đăng nhập lại**: `sudo usermod -aG dialout $USER` (Arch: nhóm `uucp`). Kiểm tra bằng lệnh `groups`.
+   - **Linux**: nếu `brltty` chiếm cổng (cổng biến mất ngay sau khi cắm), gỡ bằng `sudo apt remove brltty`. Chrome/Chromium bản **snap** hay **flatpak** có thể không thấy cổng serial; dùng bản `.deb` của Google Chrome hoặc Chrome/Edge tải từ trang chủ.
 5. Trên OhStem chuyển sang chế độ **Python**. Xóa code mẫu. Mở `code/yolobit.py`, chọn hết, dán vào ô soạn thảo, bấm **Chạy**.
 6. Mở cửa sổ serial. Khoảng mỗi 2 giây phải có một dòng như `T:31.2,H:60,L:44` (thiếu độ ẩm, ví dụ `T:31.2,L:44`, vẫn được).
 7. Báo thiếu `aiot_dht20` / `aiot_rgbled`: vào thư viện, tải **AIOT KIT**, bấm **Chạy** lại.
@@ -217,6 +233,9 @@ Sai mật khẩu 5 lần trong 1 phút thì bị chặn 1 phút. Phiên đăng n
 | `Thieu AIO_USERNAME trong file .env` | Chưa copy `.env.example` thành `.env`, hoặc chưa điền username/key (mục 2). |
 | `Thieu WEB_PASSWORD trong file .env` | Thêm dòng `WEB_PASSWORD=...` vào `.env`. |
 | `Khong mo duoc COM11` | OhStem hoặc `gateway.py` còn giữ cổng, hoặc `COM_PORT` sai. Ngắt OhStem, tắt chương trình kia, sửa `.env`, chạy lại. |
+| `Permission denied: '/dev/ttyACM0'` (Linux) | Chưa có quyền đọc cổng. `sudo usermod -aG dialout $USER`, đăng xuất rồi đăng nhập lại (mục 4). |
+| `No such file or directory: '/dev/ttyACM0'` (Linux) | Sai tên cổng, hoặc đang ở WSL2 chưa gắn USB. Tìm lại bằng `ls /dev/ttyACM* /dev/ttyUSB*` (mục 4). |
+| `python3 -m venv` báo `ensurepip is not available` (Linux) | `sudo apt install python3-venv python3-pip`, xóa thư mục `.venv` cũ rồi tạo lại. |
 | `5 giay roi, board khong gui gi qua USB` | Board chưa chạy `yolobit.py`. Nạp lại, **Lưu project vào thiết bị**, ngắt OhStem, chạy lại. |
 | `Board dang o che do nap` | Rút cáp USB, cắm lại, ngắt OhStem, chạy lại. |
 | `Bo qua dong nay. Can dang T:31.2,H:60,L:44` | Board đang in câu khác. Kiểm tra đúng file `yolobit.py` đã dán lên board. |
@@ -243,7 +262,7 @@ Sai mật khẩu 5 lần trong 1 phút thì bị chặn 1 phút. Phiên đăng n
 | 4 LED RGB | **P14**. Không cắm chung P0 |
 | Ma trận 5x5 | Có sẵn trên Yolo:Bit |
 
-Không gán thiết bị mới vào P0 hoặc P14. Cổng cho quạt và servo chưa chốt (D4 trong `docs/ROADMAP.md`).
+Không gán thiết bị mới vào P0 hoặc P14. Quạt (PWM) cắm P1, servo cửa cắm P4 (D4 trong `docs/ROADMAP.md`).
 
 ### Luồng dữ liệu
 
@@ -290,6 +309,8 @@ Không cần board, không cần mạng, không đọc `.env` thật:
 ```powershell
 .\.venv\Scripts\python.exe -m unittest discover -s tests -t .
 ```
+
+Linux / macOS: `./.venv/bin/python -m unittest discover -s tests -t .`
 
 Phải in `OK`. Chạy trước khi đẩy code lên nhánh chung.
 
