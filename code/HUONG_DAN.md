@@ -93,7 +93,7 @@ Tài khoản Adafruit miễn phí chỉ có 10 feed. Muốn thêm feed thì ph�
 T:31.2,H:60,L:44
 ```
 
-Thiếu độ ẩm vẫn được, ví dụ `T:31.2,L:44`. Đèn ma trận lúc này sáng một điểm ở giữa. Bốn LED RGB sáng xanh lá.
+Thiếu độ ẩm vẫn được, ví dụ `T:31.2,L:44`. Đèn ma trận lúc này sáng một điểm ở giữa. Bốn LED RGB **tắt** (đèn thủ công mặc định tắt; khi có cảnh báo chúng nhấp nháy đỏ).
 
 - [ ] Nếu báo thiếu `aiot_dht20`: vào thư viện, tải **AIOT KIT**, bấm **Chạy** lại. File vẫn đọc DHT20 trực tiếp qua I2C khi thư viện không có.
 - [ ] Nếu dòng là `Khong doc duoc cam bien`: kiểm tra DHT20 đang ở cổng I2C và ánh sáng đang ở P0, rồi bấm **Chạy** lại.
@@ -130,7 +130,7 @@ Số thật sẽ khác. `Canh bao` chỉ in lại khi nội dung đổi.
 - [ ] Mở lại trang Feeds. `nhiet-do`, `do-am`, `anh-sang` có số mới, cột Recorded là vài giây trước.
 - [ ] `canh-bao` là `Bình thường` khi cả ba thông số nằm trong ngưỡng.
 - [ ] Hơ tay vào DHT20 cho nhiệt độ vượt số trên `nguong-nhiet`. `canh-bao` đổi thành câu có `Nhiệt độ cao`, ma trận đèn sáng hết 25 điểm, bốn LED RGB nhấp nháy đỏ.
-- [ ] Bỏ tay ra, đợi nhiệt độ xuống. Feed về `Bình thường`, ma trận còn một điểm giữa, RGB sáng xanh lá.
+- [ ] Bỏ tay ra, đợi nhiệt độ xuống. Feed về `Bình thường`, ma trận còn một điểm giữa, 4 LED RGB về màu đèn thủ công (mặc định tắt).
 - [ ] Che cảm biến ánh sáng. Nếu giá trị xuống dưới 20, cảnh báo có thêm `Ánh sáng thấp`.
 - [ ] Dừng gateway bằng `Ctrl+C` trong PowerShell.
 
@@ -153,7 +153,7 @@ Làm tiếp chỉ khi bước 4 đã thấy số trên Adafruit và đèn đổi
 - [ ] Module 4: lưu lịch sử cảm biến, lần bật/tắt, lần cảnh báo.
 - [ ] Module 5: dựng dashboard Adafruit theo `docs/ADAFRUIT_DASHBOARD.md`.
 - [ ] Web, dữ liệu giả lập: thêm `WEB_PASSWORD` vào `.env`, chạy `web_server.py`, mở `http://127.0.0.1:8000` trên laptop, đăng nhập được, số đổi mỗi 3 giây, bấm thử đèn, quạt, cửa và các nút mô phỏng. Chi tiết ở mục 6 của `README.md`.
-- [ ] Web chạy luôn Module 1 + 2 (cách demo chính): làm xong bước 3, **không** chạy `gateway.py`, đặt `WEB_DATA=gateway` trong `.env`, chạy `web_server.py`. Cửa sổ in các dòng như bước 4; trên `http://127.0.0.1:8000` thẻ cảm biến đổi theo board trong vòng 5 giây. Hơ tay vào DHT20: dòng LED trên web chuyển đỏ, có thông báo, 4 LED RGB trên board nháy đỏ. Mở **Cấu hình ngưỡng**, lưu nhiệt độ cao hơn số đang đo: feed `nguong-nhiet` trên Adafruit đổi, web và board về xanh.
+- [ ] Web chạy luôn Module 1 + 2 (cách demo chính): làm xong bước 3, **không** chạy `gateway.py`, đặt `WEB_DATA=gateway` trong `.env`, chạy `web_server.py`. Cửa sổ in các dòng như bước 4; trên `http://127.0.0.1:8000` thẻ cảm biến đổi theo board trong vòng 5 giây. Hơ tay vào DHT20: dòng LED trên web chuyển đỏ, có thông báo, 4 LED RGB trên board nháy đỏ. Mở **Cấu hình ngưỡng**, lưu nhiệt độ cao hơn số đang đo: feed `nguong-nhiet` trên Adafruit đổi, web về xanh, ma trận trên board về một điểm giữa và 4 LED về màu đèn thủ công.
 - [ ] Web chỉ đọc Adafruit: để `gateway.py` chạy (bước 4), đặt `WEB_DATA=live`, chạy `web_server.py` ở cửa sổ thứ hai. Thẻ cảm biến đổi theo số trên Adafruit.
 - [ ] Nhận diện khuôn mặt trên webcam laptop, đúng người thì mở servo.
 - [ ] Lệnh giọng nói tiếng Việt cố định cho đèn và quạt, chạy trên mic laptop.

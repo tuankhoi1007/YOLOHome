@@ -1,6 +1,6 @@
 # Protocol
 
-Version **v0.2.1** — approved 2026-11-20 (v0.2.1: fan is PWM on P1, door servo on P4, stated by the owner the same day): Module 1–2 as running, plus the Module 3 contract (device control, section below). Module 3 code does not exist yet; it follows this file. Code must match this file; a change here is approved before code depends on it. Bump the version on every approved change.
+Version **v0.2.1** — approved 2026-11-20 (v0.2.1: fan is PWM on P1, door servo on P4, stated by the owner the same day): Module 1–2 as running, plus the Module 3 contract (device control, section below). Module 3 code is written (ROADMAP Phase 3) but not yet run on the board (Gate 3). Code must match this file; a change here is approved before code depends on it. Bump the version on every approved change.
 
 ## USB serial (115200 baud, one message per line)
 
@@ -51,7 +51,7 @@ The web (`/api/thresholds`, `module2.ThresholdPublisher`) publishes only the `ng
 
 ## v0.2.0 — Module 3 device control (approved 2026-11-20, Gate 2)
 
-From ROADMAP 2.2. Plan: `plans/phase-2-module3-contract.md`. Owner approved this contract on 2026-11-20. Code for it is built in ROADMAP Phase 3 and is not written yet.
+From ROADMAP 2.2. Plan: `plans/phase-2-module3-contract.md`. Owner approved this contract on 2026-11-20. Code for it was written in ROADMAP Phase 3 (3.1–3.4); the hardware check is Gate 3 (`code/KIEM_TRA_GATE_1_3.md`).
 
 ### Feeds (value = confirmed device state)
 

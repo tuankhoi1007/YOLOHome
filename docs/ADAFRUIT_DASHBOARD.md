@@ -17,11 +17,20 @@ ROADMAP 5.1. The owner builds it on [io.adafruit.com](https://io.adafruit.com) �
 
 Total: 8 blocks, 7 feeds (7/10 used). No feed is added.
 
-## After PROTOCOL v0.2.0 (Gate 2) — do not build yet
+## Module 3 blocks (PROTOCOL v0.2.1, approved 2026-11-20)
 
-Module 3 will add toggle/slider blocks for `den`, `quat`, `cua` (10/10 feeds). Their values (colour, fan speed, door action, D11) are decided in ROADMAP 2.2. Add them only after `PROTOCOL.md` v0.2.0 is approved.
+The three feeds already exist (10/10), so no feed is added. Each click or slider release writes one point; the gateway answers with at most one point (the confirmed state), so normal use stays inside the ~24 points/min budget in `PROTOCOL.md`.
+
+| Row | Block | Feed | Settings | Why |
+| --- | --- | --- | --- | --- |
+| 4 | **Toggle** "Đèn" | `den` | ON value `#ffffff`, OFF value `OFF` | On/off from the dashboard. The other three presets (`#b8860b`, `#9333ea`, `#2563eb`) are set from the web; a value outside the 4 presets is ignored by the gateway, so do not use a Color Picker block |
+| 4 | **Slider** "Quạt (%)" | `quat` | Min 0, Max 100, step 10 | Fan speed by PWM, `0` = off. Adafruit sends on release, one point per move |
+| 4 | **Toggle** "Cửa" | `cua` | ON value `OPEN`, OFF value `CLOSE` | The board closes the door by itself after 10 s; the gateway then writes `CLOSE`, so the toggle flips back on its own |
+
+Total with Module 3: 11 blocks, 10 feeds.
 
 ## Check
 
 - Run `gateway.py` (owner, with board): the three gauges and the chart move; `canh-bao` shows `Bình thường`.
-- Move the temperature slider below the room temperature: `canh-bao` switches to `Nhiệt độ cao: …` within a few seconds and the board LED turns red.
+- Move the temperature slider below the room temperature: `canh-bao` switches to `Nhiệt độ cao: …` within a few seconds and the board LEDs blink red.
+- Module 3 (Gate 3): toggle "Đèn" → the 4 LEDs turn white; slider "Quạt" → the fan changes speed; toggle "Cửa" → the servo opens, then closes after 10 s and the toggle flips back. Each within 3 s.
