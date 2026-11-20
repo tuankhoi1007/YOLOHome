@@ -1,6 +1,6 @@
 # Protocol
 
-Version **v0.1.0** — what is running today (Module 1–2). Code must match this file; a change here is approved before code depends on it. Bump the version on every approved change.
+Version **v0.1.1** — what is running today (Module 1–2, plus the web as a threshold writer). Code must match this file; a change here is approved before code depends on it. Bump the version on every approved change.
 
 ## USB serial (115200 baud, one message per line)
 
@@ -31,9 +31,9 @@ Free tier: **max 10 feeds**, about **30 points/minute** total.
 | `do-am` | gateway | module2, dashboard | % |
 | `anh-sang` | gateway | module2, dashboard | 0–100 |
 | `canh-bao` | gateway / module2 | dashboard | `Bình thường`, or alert texts joined by ` \| ` |
-| `nguong-nhiet` | owner (dashboard) | gateway | Alert when temperature **>** value. Fallback `TEMP_MAX` = 32. Accepted 0–80. |
-| `nguong-am` | owner | gateway | Alert when humidity **>** value. Fallback `HUMID_MAX` = 80. |
-| `nguong-sang` | owner | gateway | Alert when light **<** value. Fallback `LIGHT_MIN` = 20. |
+| `nguong-nhiet` | owner (Adafruit dashboard or web) | gateway, web | Alert when temperature **>** value. Fallback `TEMP_MAX` = 32. Accepted 0–80. |
+| `nguong-am` | owner (Adafruit dashboard or web) | gateway, web | Alert when humidity **>** value. Fallback `HUMID_MAX` = 80. Accepted 0–100. |
+| `nguong-sang` | owner (Adafruit dashboard or web) | gateway, web | Alert when light **<** value. Fallback `LIGHT_MIN` = 20. Accepted 0–100. |
 
 In use: 7 of 10. Reserved for Module 3: `den`, `quat`, `cua` (would make 10/10 — Module 4 and face logging cannot add a feed without freeing one). Old feeds `temperature`, `humidity`, `light` are unused and should be deleted.
 
@@ -43,6 +43,51 @@ A sensor feed is sent only when it changed by at least 0.3 °C / 1 % / 2 units, 
 
 Budget: steady readings ≈ 3 feeds × 4/min = **12 points/min**. Worst case, if all three keep changing past their band at every 3 s sample: 3 × 20 = **60 points/min**, over the limit. The change bands are what keep normal use under 30; any new feed must be counted against this.
 
+### Threshold writes from the web (v0.1.1)
+
+The web (`/api/thresholds`, `module2.ThresholdPublisher`) publishes only the `nguong-*` feeds whose value changed: at most **3 points per save**, by hand, and at most one write per feed every 2 s. It never creates a missing feed. The gateway reads the new value from its subscription as before; with `WEB_DATA=gateway` the value is also handed to the running gateway directly so the next comparison uses it.
+
+`WEB_DATA=gateway` runs the gateway loop inside `web_server.py`: same publishes and pacing as `gateway.py`, one MQTT connection. `WEB_DATA=live` adds a second, subscribe-only connection next to `gateway.py`. Sensor history for the web log is read over REST (`/feeds/<key>/data`) and costs no data points.
+
+## Proposed v0.2.0 — Module 3 (NOT approved, no code depends on it)
+
+Proposal from ROADMAP 2.2. Plan: `plans/phase-2-module3-contract.md`. Owner approval = Gate 2; then this section replaces the version line and moves into the tables above.
+
+### Feeds (value = confirmed device state)
+
+| Key | Value | Notes |
+| --- | --- | --- |
+| `den` | `OFF`, or `#rrggbb` of one of 4 presets: `#ffffff`, `#b8860b`, `#9333ea`, `#2563eb` | old test value `0` is read as `OFF` |
+| `quat` | integer 0–100, `0` = off | relay fan: `> 0` means on |
+| `cua` | `OPEN` or `CLOSE` | old test value `0` is read as `CLOSE` |
+
+Feed count stays **10 of 10** (the three feeds already exist). Case and spacing are normalised before comparing.
+
+### USB serial additions
+
+| Direction | Line | Effect |
+| --- | --- | --- |
+| laptop → board | `LIGHT:OFF` / `LIGHT:RRGGBB` | Manual light on the 4 RGB LEDs (P14). |
+| laptop → board | `FAN:<0-100>` | Fan relay on P1. |
+| laptop → board | `DOOR:OPEN` / `DOOR:CLOSE` | Door servo on P2. |
+| board → laptop | `ACK:LIGHT:<OFF\|RRGGBB>`, `ACK:FAN:<n>`, `ACK:DOOR:<OPEN\|CLOSE>` | Command done. After `DOOR:OPEN` the board closes the door by itself after 10 s and sends `ACK:DOOR:CLOSE` without a command. |
+
+`LED:RED` / `LED:GREEN` and `RGB:*` stay as in v0.1.1. LED priority (D3): while an alert is active the 4 LEDs blink red; when it clears they show the manual light (default off). The 5x5 matrix always shows the alert state. The board starts with light `OFF`, fan `0`, door `CLOSE`. The fan and the servo never start within 0.5 s of each other.
+
+### Gateway rules
+
+1. Commands come from a control feed (Adafruit dashboard) or from the web. The web goes straight into the gateway queue, not through the feed.
+2. The gateway keeps a `confirmed` state per device. A command equal to `confirmed` is ignored; this stops the loop feed → serial → ack → feed.
+3. Otherwise it sends the serial line and waits up to 3 s for the ack. Ack: update `confirmed` and publish it to the feed if the feed differs.
+4. No ack in 3 s: `confirmed` does not change, the failure is logged, and the gateway publishes `confirmed` back so the feed matches the real device (the feed is the source of truth).
+5. At start the gateway publishes `OFF`, `0`, `CLOSE` once (3 points).
+6. The door can always be opened from the web. Web commands to the same device closer than 2 s are refused (HTTP 429).
+
+### Budget
+
+Normal use under 6 clicks per minute: about 12 points for control, about 12 for sensors, about **24 points/min**, under 30. Worst case, spamming three devices every 2 s, goes over; the 2 s limit and sending the fan slider only on release keep normal use inside it.
+
 ## Changelog
 
+- v0.1.1 — 2026-10-26 — Approved by the owner: the web may write `nguong-nhiet`, `nguong-am`, `nguong-sang` (same keys, ranges, meaning). Accepted ranges written for `nguong-am` and `nguong-sang`.
 - v0.1.0 — 2026-10-26 — Written from the running Module 1–2 code and `README.md`.

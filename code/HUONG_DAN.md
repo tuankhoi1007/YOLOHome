@@ -31,16 +31,16 @@ Feed đang dùng (cột **Key** trên Adafruit, không phải tên hiển thị)
 
 `temperature`, `humidity`, `light` là bộ feed cũ, chương trình không ghi vào đó. `cua`, `den`, `quat` để dành cho điều khiển thiết bị.
 
-Ngưỡng độ ẩm và ánh sáng chưa có feed. Chương trình lấy số trong `.env`: độ ẩm > 80, ánh sáng < 20. Ngưỡng nhiệt lấy từ feed `nguong-nhiet` nếu feed đó có số; không có thì dùng `32` trong `.env`.
+Ngưỡng có ba feed: `nguong-nhiet`, `nguong-am`, `nguong-sang`. Feed nào có số thì chương trình dùng số đó; feed nào chưa có (hoặc tài khoản đã đủ 10 feed) thì dùng số trong `.env`: nhiệt > 32, độ ẩm > 80, ánh sáng < 20.
 
 ## 1. Máy tính
 
 - [ ] Cắm laptop vào mạng. Adafruit cần Internet.
-- [ ] Mở PowerShell, vào thư mục code:
+- [ ] Mở PowerShell, vào thư mục `code` của repo:
 
 ```powershell
-cd d:\HCMUT\261\DADN\code
-py -3.13 -m venv .venv
+cd code
+py -3 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
@@ -105,7 +105,7 @@ Không chạy `python yolobit.py` trên laptop. File đó chỉ chạy trên boa
 ## 4. Chạy gateway trên laptop
 
 - [ ] OhStem đã ngắt kết nối.
-- [ ] PowerShell đang đứng trong `d:\HCMUT\261\DADN\code`.
+- [ ] PowerShell đang đứng trong thư mục `code` của repo.
 - [ ] Chạy:
 
 ```powershell
@@ -151,6 +151,9 @@ Làm tiếp chỉ khi bước 4 đã thấy số trên Adafruit và đèn đổi
 
 - [ ] Module 3: đọc feed `den`, `quat`, `cua` rồi điều khiển đèn RGB, quạt, servo.
 - [ ] Module 4: lưu lịch sử cảm biến, lần bật/tắt, lần cảnh báo.
-- [ ] Module 5: dựng dashboard Adafruit từ các feed ở trên.
+- [ ] Module 5: dựng dashboard Adafruit theo `docs/ADAFRUIT_DASHBOARD.md`.
+- [ ] Web, dữ liệu giả lập: thêm `WEB_PASSWORD` vào `.env`, chạy `web_server.py`, mở `http://127.0.0.1:8000` trên laptop, đăng nhập được, số đổi mỗi 3 giây, bấm thử đèn, quạt, cửa và các nút mô phỏng. Chi tiết ở mục 6 của `README.md`.
+- [ ] Web chạy luôn Module 1 + 2 (cách demo chính): làm xong bước 3, **không** chạy `gateway.py`, đặt `WEB_DATA=gateway` trong `.env`, chạy `web_server.py`. Cửa sổ in các dòng như bước 4; trên `http://127.0.0.1:8000` thẻ cảm biến đổi theo board trong vòng 5 giây. Hơ tay vào DHT20: dòng LED trên web chuyển đỏ, có thông báo, 4 LED RGB trên board nháy đỏ. Mở **Cấu hình ngưỡng**, lưu nhiệt độ cao hơn số đang đo: feed `nguong-nhiet` trên Adafruit đổi, web và board về xanh.
+- [ ] Web chỉ đọc Adafruit: để `gateway.py` chạy (bước 4), đặt `WEB_DATA=live`, chạy `web_server.py` ở cửa sổ thứ hai. Thẻ cảm biến đổi theo số trên Adafruit.
 - [ ] Nhận diện khuôn mặt trên webcam laptop, đúng người thì mở servo.
 - [ ] Lệnh giọng nói tiếng Việt cố định cho đèn và quạt, chạy trên mic laptop.

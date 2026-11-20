@@ -6,6 +6,7 @@ import os
 import sys
 import urllib.error
 import urllib.request
+from datetime import datetime
 from pathlib import Path
 from urllib.parse import quote
 
@@ -85,6 +86,13 @@ TEMP_MAX = env_float("TEMP_MAX", 32)
 HUMID_MAX = env_float("HUMID_MAX", 80)
 LIGHT_MIN = env_float("LIGHT_MIN", 20)
 
+# Web (Module 5). Mat khau rong thi web_server.py tu choi chay, gateway van chay binh thuong.
+WEB_PORT = int(env("WEB_PORT", "8000"))
+WEB_PASSWORD = env("WEB_PASSWORD", "")
+WEB_DATA = env("WEB_DATA", "mock")
+# Do tre gia lap tu luc gui lenh den luc thiet bi xac nhan. Lon hon 3000 thi web bao qua thoi gian cho.
+MOCK_ACK_MS = env_float("MOCK_ACK_MS", 900)
+
 SENSOR_FEEDS = (FEED_TEMP, FEED_HUMID, FEED_LIGHT)
 THRESHOLD_FEEDS = (FEED_TEMP_MAX, FEED_HUMID_MAX, FEED_LIGHT_MIN)
 ALL_FEEDS = SENSOR_FEEDS + (FEED_ALERT,) + THRESHOLD_FEEDS
@@ -115,8 +123,8 @@ def _base():
     return "https://io.adafruit.com/api/v2/" + quote(AIO_USERNAME)
 
 
-def ensure_feeds(names):
-    """Tao feed con thieu. Tra ve tap feed key dang co, hoac None neu khong hoi duoc."""
+def list_feeds():
+    """Tap feed key dang co tren tai khoan (khong tao gi), hoac None neu khong hoi duoc."""
     try:
         found = _api("GET", _base() + "/feeds?limit=100")
     except Exception as exc:
@@ -128,6 +136,14 @@ def ensure_feeds(names):
     for item in found or []:
         if isinstance(item, dict) and item.get("key"):
             keys.add(item["key"])
+    return keys
+
+
+def ensure_feeds(names):
+    """Tao feed con thieu. Tra ve tap feed key dang co, hoac None neu khong hoi duoc."""
+    keys = list_feeds()
+    if keys is None:
+        return None
     limited = False
     for name in names:
         if name in keys or limited:
@@ -164,6 +180,42 @@ def fetch_last(feed):
         return float(str(data.get("value")).strip())
     except (TypeError, ValueError):
         return None
+
+
+def _epoch(item):
+    """Thoi diem cua mot diem du lieu Adafruit, giay tinh tu 1970."""
+    if item.get("created_epoch") is not None:
+        try:
+            return float(item["created_epoch"])
+        except (TypeError, ValueError):
+            pass
+    text = str(item.get("created_at") or "")
+    try:
+        return datetime.fromisoformat(text.replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return None
+
+
+def fetch_history(feed, limit=50):
+    """Lich su feed (moi nhat truoc): list (epoch, so). Chi doc, khong ton diem du lieu."""
+    url = _base() + "/feeds/" + quote(feed) + "/data?limit=" + str(int(limit))
+    try:
+        data = _api("GET", url)
+    except Exception as exc:
+        print("Khong doc duoc lich su", feed, exc)
+        return []
+    points = []
+    for item in data or []:
+        if not isinstance(item, dict):
+            continue
+        at = _epoch(item)
+        try:
+            value = float(str(item.get("value")).strip())
+        except (TypeError, ValueError):
+            continue
+        if at is not None:
+            points.append((at, value))
+    return points
 
 
 def connect_mqtt(on_connect, on_message=None):
