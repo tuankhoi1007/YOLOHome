@@ -81,6 +81,10 @@ FEED_ALERT = env("FEED_ALERT", "canh-bao")
 FEED_TEMP_MAX = env("FEED_TEMP_MAX", "nguong-nhiet")
 FEED_HUMID_MAX = env("FEED_HUMID_MAX", "nguong-am")
 FEED_LIGHT_MIN = env("FEED_LIGHT_MIN", "nguong-sang")
+# Module 3: feed dieu khien, gia tri la trang thai thiet bi da duoc board xac nhan (docs/PROTOCOL.md v0.2.0)
+FEED_DEN = env("FEED_DEN", "den")
+FEED_QUAT = env("FEED_QUAT", "quat")
+FEED_CUA = env("FEED_CUA", "cua")
 
 TEMP_MAX = env_float("TEMP_MAX", 32)
 HUMID_MAX = env_float("HUMID_MAX", 80)
@@ -95,7 +99,8 @@ MOCK_ACK_MS = env_float("MOCK_ACK_MS", 900)
 
 SENSOR_FEEDS = (FEED_TEMP, FEED_HUMID, FEED_LIGHT)
 THRESHOLD_FEEDS = (FEED_TEMP_MAX, FEED_HUMID_MAX, FEED_LIGHT_MIN)
-ALL_FEEDS = SENSOR_FEEDS + (FEED_ALERT,) + THRESHOLD_FEEDS
+CONTROL_FEEDS = (FEED_DEN, FEED_QUAT, FEED_CUA)
+ALL_FEEDS = SENSOR_FEEDS + (FEED_ALERT,) + THRESHOLD_FEEDS + CONTROL_FEEDS
 
 
 def topic(feed):

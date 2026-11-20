@@ -32,7 +32,7 @@ Hệ quả D3: bình thường 4 LED theo màu thủ công (mặc định tắt)
 | --- | --- | --- | --- |
 | 3.1 | low | `config.py`, `.env.example` | `FEED_DEN/QUAT/CUA`, `CONTROL_FEEDS`, nối vào `ALL_FEEDS` |
 | 3.2 | high | `gateway.py`, `module1.py`, `web_live.py`, `web_gateway.py` | Hàm chuẩn hóa + `DeviceControl`; subscribe feed điều khiển; `send_device`; đọc dòng `ACK:`; `GatewayHome.command` |
-| 3.3 | high | `yolobit.py` | Quạt P1, servo P2, ưu tiên LED, tự khóa 10 s không `sleep`, quạt và servo cách nhau ≥ 0,5 s |
+| 3.3 | high | `yolobit.py` | Quạt PWM P1, servo P4 (chủ dự án chốt 2026-11-20), ưu tiên LED, tự khóa 10 s không `sleep`, quạt và servo cách nhau ≥ 0,5 s |
 | 3.4 | medium | `tests/` | Chuẩn hóa, định tuyến, chống echo, hết hạn ack, 429 |
 | Gate 3 | | | Owner trên board: bấm → thiết bị phản ứng < 3 s; web mở cửa khi không có mặt |
 | 4.1 | xhigh | `ROADMAP.md` | Owner chốt D5 (đề xuất SQLite trên laptop) |
@@ -53,7 +53,12 @@ Hệ quả D3: bình thường 4 LED theo màu thủ công (mặc định tắt)
 
 ## Outcome
 
-2.2 soạn xong 2026-11-20 (xem Notes). Chờ owner duyệt để đóng Gate 2.
+2.2 soạn xong 2026-11-20. Owner duyệt Gate 2 ngày 2026-11-20; `PROTOCOL.md` lên v0.2.0.
+
+## Phase 3 progress (2026-11-20)
+
+- 3.1, 3.2 (gateway + `GatewayHome.command`, `snapshot` devices) và 3.4 (`tests/test_module3.py`, 116 test xanh) xong trên nhánh `feat/3-device-control`. Chưa chạy trên board.
+- 3.3 (`yolobit.py`) viết xong, chỉ mới biên dịch, chưa chạy trên board. Chủ dự án trả lời: quạt là PWM (P1), servo cắm P4. Góc servo (`ANGLE_OPEN`, `ANGLE_CLOSE`) và `PWM_MAX` cần chỉnh khi thử trên board.
 
 ## Notes
 

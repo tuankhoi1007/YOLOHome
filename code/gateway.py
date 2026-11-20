@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
-"""Chay Module 1 va Module 2 cung luc.
+"""Chay Module 1, 2 va 3 cung luc.
 
 Module 1 doc USB roi gui nhiet do, do am, anh sang len Adafruit.
 Module 2 so nguong, gui feed canh-bao, va gui LED:RED / LED:GREEN xuong board.
+Module 3 nhan lenh den / quat / cua tu feed (hoac tu web), gui xuong board, cho ack.
 
 Username va Active Key nam trong file .env, cung thu muc voi file nay.
 
@@ -15,12 +16,15 @@ import time
 
 import config
 from module1 import (
+    DEVICE_BY_FEED,
+    DeviceControl,
     Reading,
     SensorPublisher,
     open_serial,
+    parse_ack,
     parse_line,
     send_led,
-    wait_interval,
+    send_line,
 )
 from module2 import AlertPublisher, Thresholds, evaluate
 
@@ -29,7 +33,8 @@ class Gateway:
     """Vong Module 1 + 2.
 
     listener (tuy chon) duoc bao moi khi co so moi, de web hien thi:
-    on_mqtt(ok), on_reading(reading), on_alert(alert), on_thresholds(limits).
+    on_mqtt(ok), on_reading(reading), on_alert(alert), on_thresholds(limits),
+    on_device(device, value, ok, source, reason).
     Cac ham nay chay trong luong cua gateway; chung chi nen bo viec vao hang doi.
     """
 
@@ -42,6 +47,9 @@ class Gateway:
         self.reading = Reading()
         # Tin MQTT va nguong tu web deu vao day; chi luong gateway doc ra
         self.incoming = queue.Queue()
+        # Lenh dieu khien tu luong khac (web): (thiet bi, gia tri da chuan hoa, nguon)
+        self.commands = queue.Queue()
+        self.devices = DeviceControl(self._write_line, self._publish_feed, listener)
         self.sensors = None
         self.alerts = None
         self.last_led = None
@@ -56,8 +64,19 @@ class Gateway:
         if method is not None:
             method(*args)
 
+    def _write_line(self, line):
+        if self.ser is None:
+            return False
+        return send_line(self.ser, line)
+
+    def _publish_feed(self, feed, value):
+        if self.client is None:
+            return
+        self.client.publish(config.topic(feed), payload=value)
+        print("Gui:", feed + "=" + value)
+
     def start(self):
-        print("Gateway: module 1 + module 2")
+        print("Gateway: module 1 + module 2 + module 3")
         print(
             "Feed:",
             config.FEED_TEMP,
@@ -65,6 +84,8 @@ class Gateway:
             config.FEED_LIGHT,
             "| canh bao:",
             config.FEED_ALERT,
+            "| dieu khien:",
+            ", ".join(config.CONTROL_FEEDS),
         )
         self.ser = open_serial()
         self.feed_keys = config.ensure_feeds(config.ALL_FEEDS)
@@ -77,7 +98,7 @@ class Gateway:
                 self._tell("on_mqtt", False)
                 return
             print("Da ket noi Adafruit")
-            for feed in config.THRESHOLD_FEEDS:
+            for feed in config.THRESHOLD_FEEDS + config.CONTROL_FEEDS:
                 if self.feed_keys is None or feed in self.feed_keys:
                     client.subscribe(config.topic(feed))
             self._tell("on_mqtt", True)
@@ -96,12 +117,17 @@ class Gateway:
         self.client.loop_start()
         self.sensors = SensorPublisher(self.client)
         self.alerts = AlertPublisher(self.client)
+        self.devices.start()
         print("Moi lan doc cach nhau", config.fmt_num(config.READ_INTERVAL), "giay")
 
     def set_threshold(self, feed, value):
         """Doi nguong tu luong khac (web). Di cung duong voi tin MQTT tu feed nguong-*."""
         payload = config.fmt_num(value).encode("utf-8")
         self.incoming.put((config.topic(feed), payload))
+
+    def command(self, device, value, source):
+        """Gui lenh tu luong khac (web). value da qua module1.NORMALIZERS."""
+        self.commands.put((device, value, source))
 
     def apply_alert(self):
         alert = evaluate(self.reading, self.limits)
@@ -114,7 +140,14 @@ class Gateway:
         if alert is not None:
             self._tell("on_alert", alert)
 
-    def drain_thresholds(self):
+    def drain_incoming(self):
+        """Tin tu feed (nguong, dieu khien) va lenh tu web. Chi luong gateway goi ham nay."""
+        while True:
+            try:
+                device, value, source = self.commands.get_nowait()
+            except queue.Empty:
+                break
+            self.devices.request(device, value, source)
         changed = False
         while True:
             try:
@@ -123,6 +156,9 @@ class Gateway:
                 break
             feed = topic.rsplit("/", 1)[-1]
             text = payload.decode("utf-8", errors="ignore").strip()
+            if feed in DEVICE_BY_FEED:
+                self.devices.from_feed(feed, text)
+                continue
             try:
                 value = float(text)
             except ValueError:
@@ -134,10 +170,32 @@ class Gateway:
             self._tell("on_thresholds", self.limits)
             self.apply_alert()
 
+    def handle_ack(self, line):
+        """Dong ACK tu board. Tra ve True neu la ACK (ke ca ACK la), de khong xu ly nhu so do."""
+        if not line.upper().startswith("ACK:"):
+            return False
+        found = parse_ack(line)
+        if found is None:
+            print("Bo qua ACK la:", line)
+        else:
+            self.devices.ack(found[0], found[1])
+        return True
+
+    def wait_for_sample(self):
+        """Chua den luot lay mau: bo dong so do cu nhung van doc ACK, vi ACK khong lap lai."""
+        if time.time() >= self.next_sample:
+            return False
+        while self.ser.in_waiting:
+            line = self.ser.readline().decode("utf-8", errors="ignore").strip()
+            self.handle_ack(line)
+        time.sleep(0.05)
+        return True
+
     def step(self):
-        """Mot vong: nhan nguong moi, doc mot dong USB, so nguong, gui feed va lenh den."""
-        self.drain_thresholds()
-        if wait_interval(self.ser, self.next_sample):
+        """Mot vong: nhan nguong va lenh moi, doc mot dong USB, so nguong, gui feed va lenh den."""
+        self.drain_incoming()
+        self.devices.expire()
+        if self.wait_for_sample():
             return
         line = self.ser.readline().decode("utf-8", errors="ignore").strip()
         if not line:
@@ -147,6 +205,8 @@ class Gateway:
             return
         self.last_seen = time.time()
         print("Nhan:", line)
+        if self.handle_ack(line):
+            return
         if line.startswith("{") and not self.told_json:
             self.told_json = True
             print("Board in JSON. Lenh den van la LED:RED / LED:GREEN.")

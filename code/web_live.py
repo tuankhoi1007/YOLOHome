@@ -233,7 +233,12 @@ class LiveHome:
                     self.mqtt_ok = data
                 elif kind == "feed":
                     self._take(now, data[0], data[1])
+                elif kind == "device":
+                    self._take_device(now, *data)
             self._check_online(now)
+
+    def _take_device(self, now, device, value, ok, source, reason):
+        """Ket qua lenh den/quat/cua. Chi GatewayHome co thiet bi that."""
 
     def _take(self, now, feed, text):
         if feed == config.FEED_ALERT:

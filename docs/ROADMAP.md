@@ -18,15 +18,15 @@ Effort in brackets is the suggested plan level; the agent re-proposes per subtas
 ## Phase 2 — Module 3 contract
 
 - [x] 2.1 Settle D3, D4 (below) with the owner. `[high]` — answered 2026-11-20.
-- [x] 2.2 Propose `PROTOCOL.md` v0.2.0: feeds `den`, `quat`, `cua`, serial commands for light/fan/servo, acknowledgements, feed budget and points/min. `[xhigh]` → `plans/phase-2-module3-contract.md` — proposal written 2026-11-20, awaiting Gate 2.
-- [ ] **Gate 2:** owner approves `PROTOCOL.md` v0.2.0. No Module 3 code before this.
+- [x] 2.2 Propose `PROTOCOL.md` v0.2.0: feeds `den`, `quat`, `cua`, serial commands for light/fan/servo, acknowledgements, feed budget and points/min. `[xhigh]` → `plans/phase-2-module3-contract.md` — proposal written 2026-11-20, approved at Gate 2 2026-11-20.
+- [x] **Gate 2:** owner approves `PROTOCOL.md` v0.2.0. No Module 3 code before this. — approved 2026-11-20.
 
 ## Phase 3 — Module 3 device control
 
-- [ ] 3.1 `config.py` + `.env.example`: new feed constants. `[low]`
-- [ ] 3.2 `gateway.py`: subscribe to control feeds, forward commands to serial, avoid echo loops. `[high]`
-- [ ] 3.3 `yolobit.py`: handle new commands, fan and servo, keep alert LED behaviour per D3. `[high]`
-- [ ] 3.4 Tests for command parsing and routing. `[medium]`
+- [x] 3.1 `config.py` + `.env.example`: new feed constants. `[low]`
+- [x] 3.2 `gateway.py`: subscribe to control feeds, forward commands to serial, avoid echo loops. `[high]` — done 2026-11-20 (gateway + web side; 116 tests green, not run on the board).
+- [x] 3.3 `yolobit.py`: handle new commands, fan and servo, keep alert LED behaviour per D3. `[high]` — written 2026-11-20, compiles only; never run on the board (owner's run, Gate 3). Servo angles `ANGLE_OPEN`/`ANGLE_CLOSE` and `PWM_MAX` need checking on the kit.
+- [x] 3.4 Tests for command parsing and routing. `[medium]` — `tests/test_module3.py`, written with 3.2.
 - [ ] **Gate 3:** owner demo on hardware: dashboard click → device reacts in < 3 s.
 
 ## Phase 4 — Module 4 log
@@ -81,7 +81,7 @@ Open rows are the owner's to answer. The agent does not decide them, and does no
 | D1 | Which Figma file and account? | Closed 2026-10-26 | Account `pnghia`, file DADN `capP3RVGqyp3EogAk90l6a`, not the copy | — |
 | D2 | Where does AI run? | Closed (spec) | Laptop gateway, webcam and mic of the laptop; never on the board | — |
 | D3 | Share the 4 RGB LEDs on P14 between the alert (Module 2) and the manual light (Module 3), or move the alert to the 5x5 matrix only? | Closed 2026-11-20 | Share P14. Alert has priority: while an alert is active the 4 LEDs blink red; when it clears they return to the manual light colour. The 5x5 matrix always shows the alert state. | 2.2 |
-| D4 | Which ports for the fan relay and the servo? (Not P0, not P14.) | Closed 2026-11-20 | Fan relay on P1, door servo on P2. Owner to check on the kit that nothing else is plugged into P1/P2. | 2.2 |
+| D4 | Which ports for the fan and the servo? (Not P0, not P14.) | Closed 2026-11-20 | Fan (PWM) on P1, door servo on P4 (servo row; changed from P2 by the owner 2026-11-20). | 2.2 |
 | D5 | Where is the Module 4 log stored? Feeds are 10/10 after Module 3. | Open | | Phase 4 |
 | D6 | Web stack, and how does the browser control Adafruit without exposing `AIO_KEY`? | Closed 2026-10-26 | Python stdlib server on the laptop (`code/web_server.py`, `http.server` + SSE) holds the key; plain HTML/CSS/JS in `code/web/`, no build step, no new dependency | — |
 | D7 | Face recognition approach and library. | Open | | Phase 6 |

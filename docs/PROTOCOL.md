@@ -1,6 +1,6 @@
 # Protocol
 
-Version **v0.1.1** — what is running today (Module 1–2, plus the web as a threshold writer). Code must match this file; a change here is approved before code depends on it. Bump the version on every approved change.
+Version **v0.2.1** — approved 2026-11-20 (v0.2.1: fan is PWM on P1, door servo on P4, stated by the owner the same day): Module 1–2 as running, plus the Module 3 contract (device control, section below). Module 3 code does not exist yet; it follows this file. Code must match this file; a change here is approved before code depends on it. Bump the version on every approved change.
 
 ## USB serial (115200 baud, one message per line)
 
@@ -49,16 +49,16 @@ The web (`/api/thresholds`, `module2.ThresholdPublisher`) publishes only the `ng
 
 `WEB_DATA=gateway` runs the gateway loop inside `web_server.py`: same publishes and pacing as `gateway.py`, one MQTT connection. `WEB_DATA=live` adds a second, subscribe-only connection next to `gateway.py`. Sensor history for the web log is read over REST (`/feeds/<key>/data`) and costs no data points.
 
-## Proposed v0.2.0 — Module 3 (NOT approved, no code depends on it)
+## v0.2.0 — Module 3 device control (approved 2026-11-20, Gate 2)
 
-Proposal from ROADMAP 2.2. Plan: `plans/phase-2-module3-contract.md`. Owner approval = Gate 2; then this section replaces the version line and moves into the tables above.
+From ROADMAP 2.2. Plan: `plans/phase-2-module3-contract.md`. Owner approved this contract on 2026-11-20. Code for it is built in ROADMAP Phase 3 and is not written yet.
 
 ### Feeds (value = confirmed device state)
 
 | Key | Value | Notes |
 | --- | --- | --- |
 | `den` | `OFF`, or `#rrggbb` of one of 4 presets: `#ffffff`, `#b8860b`, `#9333ea`, `#2563eb` | old test value `0` is read as `OFF` |
-| `quat` | integer 0–100, `0` = off | relay fan: `> 0` means on |
+| `quat` | integer 0–100, `0` = off | PWM fan: the value is the speed in percent; `0` = off. Very low values may not spin the blades (static friction) |
 | `cua` | `OPEN` or `CLOSE` | old test value `0` is read as `CLOSE` |
 
 Feed count stays **10 of 10** (the three feeds already exist). Case and spacing are normalised before comparing.
@@ -68,8 +68,8 @@ Feed count stays **10 of 10** (the three feeds already exist). Case and spacing 
 | Direction | Line | Effect |
 | --- | --- | --- |
 | laptop → board | `LIGHT:OFF` / `LIGHT:RRGGBB` | Manual light on the 4 RGB LEDs (P14). |
-| laptop → board | `FAN:<0-100>` | Fan relay on P1. |
-| laptop → board | `DOOR:OPEN` / `DOOR:CLOSE` | Door servo on P2. |
+| laptop → board | `FAN:<0-100>` | Fan speed by PWM on P1 (`0` = off, 100 = full). |
+| laptop → board | `DOOR:OPEN` / `DOOR:CLOSE` | Door servo on P4 (the servo row of the expansion board). Board holds the angle, releases the pulse after about 1.5 s. |
 | board → laptop | `ACK:LIGHT:<OFF\|RRGGBB>`, `ACK:FAN:<n>`, `ACK:DOOR:<OPEN\|CLOSE>` | Command done. After `DOOR:OPEN` the board closes the door by itself after 10 s and sends `ACK:DOOR:CLOSE` without a command. |
 
 `LED:RED` / `LED:GREEN` and `RGB:*` stay as in v0.1.1. LED priority (D3): while an alert is active the 4 LEDs blink red; when it clears they show the manual light (default off). The 5x5 matrix always shows the alert state. The board starts with light `OFF`, fan `0`, door `CLOSE`. The fan and the servo never start within 0.5 s of each other.
@@ -89,5 +89,7 @@ Normal use under 6 clicks per minute: about 12 points for control, about 12 for 
 
 ## Changelog
 
+- v0.2.0 — 2026-11-20 — Approved by the owner (Gate 2): feeds `den`, `quat`, `cua`; serial `LIGHT:`, `FAN:`, `DOOR:` and `ACK:` lines; gateway confirmed-state rules; fan on P1, door servo on P2. Feed count 10 of 10.
+- v0.2.1 — 2026-11-20 — Owner: the fan is PWM (not a relay) on P1; the door servo is on P4, not P2. Commands, feeds and ack lines are unchanged.
 - v0.1.1 — 2026-10-26 — Approved by the owner: the web may write `nguong-nhiet`, `nguong-am`, `nguong-sang` (same keys, ranges, meaning). Accepted ranges written for `nguong-am` and `nguong-sang`.
 - v0.1.0 — 2026-10-26 — Written from the running Module 1–2 code and `README.md`.

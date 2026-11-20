@@ -14,6 +14,7 @@ How gateway and board code is written. Copy the patterns already here; add a rul
 - Parsing and decisions are plain functions (`parse_line`, `normalize_light`, `evaluate`) that don't touch serial or MQTT, so they can be tested. Keep new logic the same way.
 - Publishing goes through a publisher class (`SensorPublisher`, `AlertPublisher`) that owns rate limiting. Don't call `client.publish` from new places.
 - MQTT callbacks only put work on a `queue.Queue`; the main loop does the work (see `gateway.py`).
+- Module 3 devices: `module1.DeviceControl` holds the `confirmed` state, the 3 s ack wait and the echo-loop rule (see `docs/PROTOCOL.md` v0.2.0). Serial writes and feed publishes are injected as functions so it is tested without a port. Commands from other threads (web) go in through `Gateway.command`; the gateway reads `ACK:` lines in `Gateway.step()` and `wait_for_sample()` (an ACK is never repeated, so it must not be flushed with old sensor lines).
 - `gateway.py` composes modules; `module1.py` / `module2.py` stay runnable on their own.
 
 ## Web (Module 5)
