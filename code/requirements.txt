@@ -1,3 +1,9 @@
 paho-mqtt>=2.0
 pyserial>=3.5
 python-dotenv>=1.0
+# Nhan dien khuon mat (Phase 6). opencv-contrib co YuNet, SFace va LBPH, cai bang wheel, khong can dlib hay bien dich.
+# Khoa 4.10.0.84 vi SFace/YuNet trong ban do chay CPU on dinh tren Python 3.10 Windows.
+opencv-contrib-python==4.10.0.84
+numpy>=1.23,<2.1
+# Chi de ve bieu do danh gia (confusion, sweep). Gateway khong import matplotlib.
+matplotlib>=3.7,<3.11

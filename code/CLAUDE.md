@@ -31,6 +31,15 @@ How gateway and board code is written. Copy the patterns already here; add a rul
 - Pages fetch `api.state()` at start and again on every SSE `open`, so a reconnect never leaves stale data.
 - Figma frames are a visual reference. Hardware text follows `README.md` and `docs/PROTOCOL.md` (RGB LED on P14, light sensor on P0), not the Figma copy.
 
+## Face and door (Phase 6)
+
+- Recognition stays on the laptop. `yolobit.py` only sees `DOOR:PIN`, `DOOR:OPEN` and `DOOR:CLOSE`. No image, no model and no new Adafruit feed on the board.
+- `FACE_ENABLE` defaults off. The sensor loop must keep running when the model file or the camera is missing.
+- Door decisions go through `door.DoorController` and are applied only inside `Gateway.step`. Web and face threads call `request_door` / `submit_face`, which only queue. Do not wipe the serial input buffer while waiting for the next sensor sample: a `DOOR:` ack is sitting in it.
+- Servo pin comes from `config.SERVO_PIN`. `parse_servo_pin` rejects P0 and P14. Angles stay in `yolobit.py` (`DOOR_CLOSED_ANGLE`, `DOOR_OPEN_ANGLE`).
+- A training run that is synthetic must not write `models/face/chosen.json`. Face images and model files stay under `code/data/` and `code/models/`, both gitignored. Report numbers go to `docs/face/`.
+- Image paths may be Unicode. Read and write them with `face_engine.read_image` / `write_image` (`np.fromfile`), not `cv2.imread`.
+
 ## Style
 
 - Comments, docstrings and `print` text: Vietnamese without accents (`Khong mo duoc COM`), in Python, JS, CSS and HTML alike. Text sent to Adafruit feeds or shown in the UI (including API error messages): Vietnamese with accents (`Nhiệt độ cao`).

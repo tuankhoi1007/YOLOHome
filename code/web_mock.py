@@ -214,6 +214,7 @@ class MockHome:
                     "simulate": True,
                     "log": True,
                     "thresholds_write": True,
+                    "door": True,
                 },
                 "gateway": self._gateway_view(),
                 "sensors": self._sensors_view(now),

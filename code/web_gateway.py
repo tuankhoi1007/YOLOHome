@@ -18,6 +18,7 @@ import config
 from gateway import Gateway
 from module2 import ThresholdPublisher
 from web_live import LiveHome
+from web_mock import CommandError
 
 
 class GatewayHome(LiveHome):
@@ -32,6 +33,23 @@ class GatewayHome(LiveHome):
         self.thread = None
         LiveHome.__init__(self, emit, clock=clock, connect=connect)
         self.label = config.COM_PORT
+        # Cua di serial (PROTOCOL v0.1.2). Den va quat van cho v0.2.0 nen features.devices van False.
+        self.bridge_door = True
+        self.bridge_face = True
+        self.servo_pin = config.SERVO_PIN
+        self.door_relock = config.DOOR_OPEN_SECONDS
+        if connect:
+            self.tick()
+
+    def _command_door(self, body, source):
+        """Web giu cong COM: dua lenh vao hang cua gateway, khong ghi file."""
+        from web_mock import parse_command
+
+        changes = parse_command("door", body)
+        if self.gateway is None or not hasattr(self.gateway, "request_door"):
+            raise CommandError(503, "Chưa nối board.")
+        self.gateway.request_door(changes["locked"], source)
+        return {"device": "door", "status": "sent", "requested": changes}
 
     # ---------- nguon du lieu: luong gateway thay cho MQTT ----------
 
@@ -88,6 +106,18 @@ class GatewayHome(LiveHome):
         )
         for feed, value in pairs:
             self.incoming.put(("feed", (feed, config.fmt_num(value))))
+
+    def on_face(self, result):
+        self.incoming.put(("face", result))
+
+    def on_face_status(self, status):
+        self.incoming.put(("face_status", status))
+
+    def on_door(self, view):
+        self.incoming.put(("door", view))
+
+    def on_door_error(self, text):
+        self.incoming.put(("door_error", text))
 
     # ---------- nguong: ap dung ngay trong gateway (UC04) ----------
 

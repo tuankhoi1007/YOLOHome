@@ -23,13 +23,21 @@ for _key, _value in FAKE_ENV.items():
 import http.client  # noqa: E402
 import json  # noqa: E402
 import random  # noqa: E402
+import tempfile  # noqa: E402
 import threading  # noqa: E402
 import unittest  # noqa: E402
+from pathlib import Path  # noqa: E402
 
+import config  # noqa: E402
 import module2  # noqa: E402
 import web_mock  # noqa: E402
 import web_server  # noqa: E402
 from web_mock import CommandError, MockHome  # noqa: E402
+
+_TEST_RUNTIME = Path(tempfile.mkdtemp(prefix="yolohome-web-"))
+config.FACE_STATUS_PATH = _TEST_RUNTIME / "status.json"
+config.FACE_LOG_PATH = _TEST_RUNTIME / "face.jsonl"
+config.DOOR_CMD_PATH = _TEST_RUNTIME / "door.json"
 
 
 class FakeClock:
@@ -354,11 +362,56 @@ class LiveHomeTest(unittest.TestCase):
         home, _, _, _ = self.make_live()
         for call in (
             lambda: home.command("light", {"on": True}),
+            lambda: home.command("door", {"action": "unlock"}),
             lambda: home.set_thresholds({"temp_max": 30}),
             lambda: home.simulate("overheat"),
         ):
             with self.assertRaises(CommandError):
                 call()
+
+    def test_live_reads_face_status_and_queues_door_command(self):
+        from runtime_store import read_json, write_json
+
+        home, clock, events, _ = self.make_live()
+        folder = Path(tempfile.mkdtemp(prefix="yolohome-bridge-"))
+        old_status = config.FACE_STATUS_PATH
+        old_cmd = config.DOOR_CMD_PATH
+        config.FACE_STATUS_PATH = folder / "status.json"
+        config.DOOR_CMD_PATH = folder / "door.json"
+        try:
+            write_json(config.FACE_STATUS_PATH, {
+                "seq": 1,
+                "face": {
+                    "ok": True,
+                    "name": "An",
+                    "score": 0.7,
+                    "threshold": 0.36,
+                    "metric": "cosine",
+                    "model": "sface",
+                    "confidence": 70.0,
+                    "at": clock(),
+                },
+                "face_runtime": {"enabled": True, "ready": True, "model": "sface", "camera": "on", "message": ""},
+                "door": {"device": "door", "locked": False, "relock_in": 8, "at": clock(), "source": "FaceAI"},
+                "servo_pin": "P4",
+                "door_relock": 10,
+            })
+            home.tick()
+            state = home.snapshot()
+            self.assertTrue(state["features"]["face"])
+            self.assertTrue(state["features"]["door"])
+            self.assertFalse(state["features"]["devices"])
+            self.assertEqual(state["face"]["name"], "An")
+            self.assertFalse(state["devices"]["door"]["locked"])
+            self.assertEqual(home.log(kind="face")["total"], 1)
+            self.assertEqual(events.last("face")["name"], "An")
+            home.command("door", {"action": "lock"})
+            cmd = read_json(config.DOOR_CMD_PATH)
+            self.assertTrue(cmd["locked"])
+            self.assertEqual(cmd["id"], 1)
+        finally:
+            config.FACE_STATUS_PATH = old_status
+            config.DOOR_CMD_PATH = old_cmd
 
 
 class LogTest(unittest.TestCase):
