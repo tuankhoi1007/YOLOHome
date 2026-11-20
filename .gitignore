@@ -16,3 +16,6 @@ __pycache__/
 # Cau hinh Claude Code ca nhan
 .claude/settings.local.json
 CLAUDE.local.md
+
+# Windows download markers
+*Zone.Identifier

@@ -30,6 +30,7 @@ How Claude Code works on YOLOHome. The full way of working is in `docs/AGENT_WOR
 6. A fix that fails twice: stop, propose one effort level higher and a new plan. No third retry.
 7. Done means the Definition of done in `docs/AGENT_WORKFLOW.md`. Say plainly what was not verified, especially anything that needs the board, the COM port or `.env`. Those runs are the owner's.
 8. End each task with a one-line handoff prompt for the next session.
+9. Commit messages and PR descriptions carry no `Co-Authored-By` or "Generated with" lines, for any agent or tool.
 
 ## Hard limits
 
