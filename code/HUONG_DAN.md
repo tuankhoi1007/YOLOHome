@@ -31,16 +31,16 @@ Feed đang dùng (cột **Key** trên Adafruit, không phải tên hiển thị)
 
 `temperature`, `humidity`, `light` là bộ feed cũ, chương trình không ghi vào đó. `cua`, `den`, `quat` để dành cho điều khiển thiết bị.
 
-Ngưỡng độ ẩm và ánh sáng chưa có feed. Chương trình lấy số trong `.env`: độ ẩm > 80, ánh sáng < 20. Ngưỡng nhiệt lấy từ feed `nguong-nhiet` nếu feed đó có số; không có thì dùng `32` trong `.env`.
+Ngưỡng có ba feed: `nguong-nhiet`, `nguong-am`, `nguong-sang`. Feed nào có số thì chương trình dùng số đó; feed nào chưa có (hoặc tài khoản đã đủ 10 feed) thì dùng số trong `.env`: nhiệt > 32, độ ẩm > 80, ánh sáng < 20.
 
 ## 1. Máy tính
 
 - [ ] Cắm laptop vào mạng. Adafruit cần Internet.
-- [ ] Mở PowerShell, vào thư mục code:
+- [ ] Mở PowerShell, vào thư mục `code` của repo:
 
 ```powershell
-cd d:\HCMUT\261\DADN\code
-py -3.13 -m venv .venv
+cd code
+py -3 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
@@ -105,7 +105,7 @@ Không chạy `python yolobit.py` trên laptop. File đó chỉ chạy trên boa
 ## 4. Chạy gateway trên laptop
 
 - [ ] OhStem đã ngắt kết nối.
-- [ ] PowerShell đang đứng trong `d:\HCMUT\261\DADN\code`.
+- [ ] PowerShell đang đứng trong thư mục `code` của repo.
 - [ ] Chạy:
 
 ```powershell
