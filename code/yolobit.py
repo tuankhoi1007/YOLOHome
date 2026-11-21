@@ -18,7 +18,7 @@ Xong viec thi tra ACK:LIGHT:..., ACK:FAN:n, ACK:DOOR:... Cua tu dong sau 10 giay
 
 Den 4 LED RGB cam cong P14 (khong cam chung P0 voi cam bien anh sang).
 Canh bao: 4 den do nhap nhay (uu tien hon den thu cong). Het canh bao: 4 den ve mau thu cong,
-mac dinh tat. Ma tran 5x5 chi co mau do, nen RED sang het, GREEN mot diem giua.
+mac dinh tat. Ma tran 5x5 (LED RGB): RED sang do het, GREEN mot diem xanh o giua.
 """
 
 from yolobit import *
@@ -91,8 +91,9 @@ def read_climate():
     try:
         if hasattr(_dht, "read_dht20"):
             _dht.read_dht20()
-        temp = _call(_dht, ("temperature", "dht20_temp", "temp"))
-        humid = _call(_dht, ("humidity", "dht20_humid", "humid"))
+        # Thu vien AIOT KIT cua OhStem dung dht20_temperature() / dht20_humidity().
+        temp = _call(_dht, ("dht20_temperature", "temperature", "dht20_temp", "temp"))
+        humid = _call(_dht, ("dht20_humidity", "humidity", "dht20_humid", "humid"))
         return temp, humid
     except Exception as exc:
         print("Loi DHT20:", exc)
@@ -132,8 +133,9 @@ _tick = 0
 # ---------- Module 3: den thu cong, quat, cua ----------
 FAN_PIN = pin1
 DOOR_PIN = pin4
-# Dieu xung 12 bit theo sach OhStem (chuong 7): 0 la tat, 4095 la het cong suat. Can thu tren board.
-PWM_MAX = 4095
+# write_analog cua Yolo:Bit dung thang 0-1023 (da thu tren board 2026-11-21: 1023 quay het cong suat).
+# So lon hon 1023 lam lenh loi nen quat khong chay.
+PWM_MAX = 1023
 # Goc servo. Do tren mach that roi sua hai so nay.
 ANGLE_CLOSE = 0
 ANGLE_OPEN = 90
@@ -204,22 +206,34 @@ def _manual_color():
     return (red, green, blue)
 
 
+def _matrix(alert):
+    """Ma tran 5x5 cua Yolo:Bit la LED RGB: set_pixel nhan mau '#rrggbb', khong nhan so 0-9.
+    Loi ma tran chi in ra, khong lam dung vong lap doc cam bien."""
+    try:
+        display.clear()
+        if alert:
+            for x in range(5):
+                for y in range(5):
+                    display.set_pixel(x, y, "#ff0000")
+        elif alert is False:
+            display.set_pixel(2, 2, "#00ff00")
+    except Exception as exc:
+        print("Loi ma tran:", exc)
+
+
 def render():
-    """RED nhap nhay. GREEN sang deu. Ma tran do sang theo cung trang thai."""
+    """RED nhap nhay. GREEN sang deu. Ma tran theo cung trang thai."""
     on = _mode != "RED" or _lit
     if not on:
         _fill((0, 0, 0))
-        display.clear()
+        _matrix(None)
         return
     if _mode == "RED":
         _fill((80, 0, 0))
-        for x in range(5):
-            for y in range(5):
-                display.set_pixel(x, y, 9)
+        _matrix(True)
         return
     _fill(_manual_color())
-    display.clear()
-    display.set_pixel(2, 2, 4)
+    _matrix(False)
 
 
 def set_led(color):
