@@ -115,7 +115,7 @@ Không chạy `python yolobit.py` trên laptop. File đó chỉ chạy trên boa
 Đúng khi cửa sổ in lần lượt các dòng kiểu:
 
 ```text
-Gateway: module 1 + module 2
+Gateway: module 1 + module 2 + module 3
 Da ket noi Adafruit
 Dang doc COM11 toc do 115200
 Nhan: T:31.2,H:60,L:44
