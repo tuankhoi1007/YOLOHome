@@ -314,11 +314,10 @@ class FanCard extends DeviceCard {
 }
 
 class DoorCard extends DeviceCard {
-  constructor(relockSeconds, pin) {
+  constructor(relockSeconds) {
     super("door");
     this.title = "Khóa cửa điện";
     this.relockSeconds = relockSeconds;
-    this.pin = pin || "";
     this.relockAt = null;
   }
 
@@ -405,12 +404,7 @@ class DoorCard extends DeviceCard {
     const [tone, text] = this.chip();
     const [noteTone, noteText] = this.note();
     return [
-      head(
-        state.locked ? "img/icon-lock.svg" : "img/icon-unlock.svg",
-        this.title,
-        this.pin ? "Servo trên " + this.pin + " (đổi SERVO_PIN, không dùng P0/P14)" : "Servo / cổng chưa chốt (D4)",
-        h("span", { class: "chip " + tone }, text.toUpperCase()),
-      ),
+      head(state.locked ? "img/icon-lock.svg" : "img/icon-unlock.svg", this.title, "Servo / cổng chưa chốt (D4)", h("span", { class: "chip " + tone }, text.toUpperCase())),
       h("p", { class: "device-desc" }, "Servo xoay 0° (đóng) – 90° (mở). Tự khóa sau " + this.relockSeconds + " giây. Luôn mở được bằng tay khi nhận diện khuôn mặt lỗi."),
       this.bigLine(),
       this.action(),
@@ -433,40 +427,29 @@ export class Devices {
   constructor(container) {
     this.container = container;
     this.cards = {};
-    this.mode = "";
   }
 
   load(state) {
-    const mode = state.features.devices ? "all" : state.features.door ? "door" : "none";
-    if (this.mode !== mode) {
-      this.mode = mode;
+    if (!state.features.devices) {
       this.cards = {};
+      const why = "Chưa nối thiết bị thật: cần PROTOCOL.md v0.2.0 (Gate 2) cho feed den, quat, cua.";
+      this.container.replaceChildren(
+        placeholder("Đèn LED RGB", why),
+        placeholder("Quạt làm mát", why),
+        placeholder("Khóa cửa điện", why),
+      );
+      return;
+    }
+    if (!this.cards.light) {
       this.container.replaceChildren();
-      if (mode === "none") {
-        const why = "Đèn và quạt chờ PROTOCOL.md v0.2.0. Cửa hiện khi WEB_DATA=gateway hoặc khi gateway.py đang chạy.";
-        this.container.replaceChildren(
-          placeholder("Đèn LED RGB", why),
-          placeholder("Quạt làm mát", why),
-          placeholder("Khóa cửa điện", why),
-        );
-        return;
-      }
-      if (mode === "door") {
-        const why = "Đèn và quạt vẫn chờ giao thức v0.2.0. Cửa điều khiển bằng lệnh DOOR trên cổng USB.";
-        this.container.append(placeholder("Đèn LED RGB", why), placeholder("Quạt làm mát", why));
-        this.cards.door = new DoorCard(state.door_relock, state.servo_pin);
-        this.cards.door.confirmed = state.devices.door;
-        this.cards.door.mount(this.container);
-      } else {
-        this.cards = {
-          light: new LightCard(state.colors),
-          fan: new FanCard(),
-          door: new DoorCard(state.door_relock, state.servo_pin),
-        };
-        for (const name in this.cards) {
-          this.cards[name].confirmed = state.devices[name];
-          this.cards[name].mount(this.container);
-        }
+      this.cards = {
+        light: new LightCard(state.colors),
+        fan: new FanCard(),
+        door: new DoorCard(state.door_relock),
+      };
+      for (const name in this.cards) {
+        this.cards[name].confirmed = state.devices[name];
+        this.cards[name].mount(this.container);
       }
     }
     for (const name in this.cards) this.cards[name].load(state.devices[name]);

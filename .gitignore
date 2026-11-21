@@ -7,7 +7,7 @@ __pycache__/
 *.pyc
 .vscode/
 
-# Tài liệu môn học và file cá nhân, không phải mã nguồn
+# Tai lieu mon hoc va file ca nhan, khong phai ma nguon
 *.pdf
 *.docx
 *.xlsx
@@ -17,6 +17,9 @@ __pycache__/
 .claude/settings.local.json
 CLAUDE.local.md
 
-# Anh khuon mat va model nhan dien (du lieu sinh trac). Khong commit.
+# Windows download markers
+*Zone.Identifier
+
+# Anh khuon mat va model nhan dien. Khong commit.
 code/data/
 code/models/

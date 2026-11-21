@@ -216,6 +216,18 @@ def open_serial():
     return ser
 
 
+def send_line(ser, line):
+    """Ghi mot dong lenh xuong board. Tra ve True neu ghi duoc."""
+    try:
+        ser.write((line + "\n").encode("ascii"))
+        ser.flush()
+    except Exception as exc:
+        print("Khong gui duoc lenh", line + ":", exc)
+        return False
+    print("Lenh:", line)
+    return True
+
+
 def send_led(ser, color):
     """Gui lenh mau den xuong board. Board can doc dong LED:RED hoac LED:GREEN."""
     if color not in ("RED", "GREEN"):
@@ -227,6 +239,176 @@ def send_led(ser, color):
         print("Khong gui duoc lenh den:", exc)
         return
     print("Lenh den:", color)
+
+
+# ---------- Module 3: dieu khien den, quat, cua (docs/PROTOCOL.md v0.2.0) ----------
+
+# 4 mau den co dinh (D11). Dung chung voi web_mock.LIGHT_COLORS.
+LIGHT_PRESETS = ("#ffffff", "#b8860b", "#9333ea", "#2563eb")
+# Board bao ack trong vai tram ms. Qua 3 giay thi coi nhu lenh mat.
+ACK_WAIT = 3.0
+# Web: cung mot thiet bi khong nhan lenh thu hai trong 2 giay (HTTP 429).
+MIN_COMMAND_GAP = 2.0
+
+DEVICE_FEEDS = {
+    "den": config.FEED_DEN,
+    "quat": config.FEED_QUAT,
+    "cua": config.FEED_CUA,
+}
+DEVICE_BY_FEED = {feed: device for device, feed in DEVICE_FEEDS.items()}
+DEVICE_ACK = {"LIGHT": "den", "FAN": "quat", "DOOR": "cua"}
+# Trang thai luc bat dau: board khoi dong voi den tat, quat 0, cua dong.
+START_STATE = {"den": "OFF", "quat": "0", "cua": "CLOSE"}
+
+
+def normalize_den(text):
+    """Gia tri feed den -> 'OFF' hoac '#rrggbb' (1 trong 4 mau). Sai thi None. '0' cu = OFF."""
+    value = str(text).strip().lower()
+    if value in ("off", "0"):
+        return "OFF"
+    if not value.startswith("#"):
+        value = "#" + value
+    if value in LIGHT_PRESETS:
+        return value
+    return None
+
+
+def normalize_quat(text):
+    """Gia tri feed quat -> so nguyen 0-100 dang chuoi. Sai thi None."""
+    number = _number(str(text).strip())
+    if number is None or number < 0 or number > 100:
+        return None
+    return str(int(round(number)))
+
+
+def normalize_cua(text):
+    """Gia tri feed cua -> 'OPEN' hoac 'CLOSE'. '0' cu = CLOSE. Sai thi None."""
+    value = str(text).strip().upper()
+    if value == "0":
+        return "CLOSE"
+    if value in ("OPEN", "CLOSE"):
+        return value
+    return None
+
+
+NORMALIZERS = {"den": normalize_den, "quat": normalize_quat, "cua": normalize_cua}
+
+
+def device_line(device, value):
+    """Dong gui xuong board cho gia tri da chuan hoa, vi du LIGHT:b8860b."""
+    if device == "den":
+        return "LIGHT:" + ("OFF" if value == "OFF" else value.lstrip("#"))
+    if device == "quat":
+        return "FAN:" + value
+    return "DOOR:" + value
+
+
+def parse_ack(line):
+    """ACK:LIGHT:OFF / ACK:FAN:50 / ACK:DOOR:OPEN -> (thiet bi, gia tri chuan hoa), hoac None."""
+    parts = line.strip().split(":")
+    if len(parts) != 3 or parts[0].upper() != "ACK":
+        return None
+    device = DEVICE_ACK.get(parts[1].strip().upper())
+    if device is None:
+        return None
+    value = NORMALIZERS[device](parts[2])
+    if value is None:
+        return None
+    return device, value
+
+
+class DeviceControl:
+    """Giu trang thai da xac nhan cua den, quat, cua va luat gui lenh.
+
+    send(line) ghi mot dong xuong board (tra ve True neu ghi duoc).
+    publish(feed, value) gui len Adafruit. Ca hai duoc truyen vao de kiem thu khong can cong COM.
+    listener.on_device(device, value, ok, source, reason) bao ket qua cho web.
+
+    Luat (PROTOCOL v0.2.0): lenh bang trang thai da xac nhan thi bo qua, de feed -> USB -> ack -> feed
+    khong quay vong. Co ack thi cap nhat va dua len feed neu feed khac. Het 3 giay khong ack thi
+    giu nguyen, ghi loi, dua trang thai that len lai feed.
+    """
+
+    def __init__(self, send, publish, listener=None, clock=time.time):
+        self.send = send
+        self.publish = publish
+        self.listener = listener
+        self.clock = clock
+        self.confirmed = dict(START_STATE)
+        # Gia tri feed theo hieu biet cua gateway: de biet khi nao can dua len de feed khop thiet bi
+        self.feed_value = dict(START_STATE)
+        self.pending = {}
+        self.last_command = {}
+
+    def _tell(self, device, value, ok, source, reason=""):
+        method = getattr(self.listener, "on_device", None)
+        if method is not None:
+            method(device, value, ok, source, reason)
+
+    def _sync_feed(self, device):
+        if self.feed_value[device] == self.confirmed[device]:
+            return
+        self.publish(DEVICE_FEEDS[device], self.confirmed[device])
+        self.feed_value[device] = self.confirmed[device]
+
+    def start(self):
+        """Luc moi chay: dua trang thai ban dau len feed mot lan (3 diem)."""
+        for device in DEVICE_FEEDS:
+            self.publish(DEVICE_FEEDS[device], self.confirmed[device])
+
+    def too_soon(self, device):
+        last = self.last_command.get(device)
+        return last is not None and self.clock() - last < MIN_COMMAND_GAP
+
+    def from_feed(self, feed, text):
+        """Gia tri vua doc tu feed dieu khien (Adafruit dashboard hoac vong lap lai cua chinh minh)."""
+        device = DEVICE_BY_FEED.get(feed)
+        if device is None:
+            return
+        value = NORMALIZERS[device](text)
+        if value is None:
+            print("Bo qua gia tri khong hop le cua", feed + ":", text)
+            self.feed_value[device] = str(text).strip()
+            self._sync_feed(device)
+            return
+        # Giu nguyen dang feed dang co (vd '0' cu) de lan sau so sanh dung
+        self.feed_value[device] = str(text).strip()
+        self.request(device, value, "Adafruit IO")
+
+    def request(self, device, value, source):
+        """Yeu cau doi trang thai. value da chuan hoa. Tra ve 'ignored', 'sent' hoac 'failed'."""
+        if value == self.confirmed[device] and device not in self.pending:
+            return "ignored"
+        line = device_line(device, value)
+        if not self.send(line):
+            self._tell(device, self.confirmed[device], False, source, "Không gửi được lệnh xuống board")
+            return "failed"
+        now = self.clock()
+        self.last_command[device] = now
+        self.pending[device] = (now + ACK_WAIT, value, source)
+        return "sent"
+
+    def ack(self, device, value):
+        """Board bao xong. Cua tu khoa sau 10 giay cung den day ma khong co lenh."""
+        waiting = self.pending.pop(device, None)
+        source = waiting[2] if waiting else "Board"
+        changed = value != self.confirmed[device]
+        self.confirmed[device] = value
+        self._sync_feed(device)
+        if changed or waiting:
+            self._tell(device, value, True, source)
+
+    def expire(self):
+        """Goi moi vong: lenh qua 3 giay khong ack thi bo, dua trang thai that len feed."""
+        now = self.clock()
+        for device in list(self.pending):
+            deadline, value, source = self.pending[device]
+            if now < deadline:
+                continue
+            del self.pending[device]
+            print("Board khong tra loi lenh", device_line(device, value), "sau", int(ACK_WAIT), "giay")
+            self._sync_feed(device)
+            self._tell(device, self.confirmed[device], False, source, "Thiết bị không phản hồi sau 3 giây")
 
 
 def main():

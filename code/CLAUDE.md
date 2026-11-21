@@ -14,6 +14,7 @@ How gateway and board code is written. Copy the patterns already here; add a rul
 - Parsing and decisions are plain functions (`parse_line`, `normalize_light`, `evaluate`) that don't touch serial or MQTT, so they can be tested. Keep new logic the same way.
 - Publishing goes through a publisher class (`SensorPublisher`, `AlertPublisher`) that owns rate limiting. Don't call `client.publish` from new places.
 - MQTT callbacks only put work on a `queue.Queue`; the main loop does the work (see `gateway.py`).
+- Module 3 devices: `module1.DeviceControl` holds the `confirmed` state, the 3 s ack wait and the echo-loop rule (see `docs/PROTOCOL.md` v0.2.0). Serial writes and feed publishes are injected as functions so it is tested without a port. Commands from other threads (web) go in through `Gateway.command`; the gateway reads `ACK:` lines in `Gateway.step()` and `wait_for_sample()` (an ACK is never repeated, so it must not be flushed with old sensor lines).
 - `gateway.py` composes modules; `module1.py` / `module2.py` stay runnable on their own.
 
 ## Web (Module 5)
@@ -33,13 +34,12 @@ How gateway and board code is written. Copy the patterns already here; add a rul
 
 ## Face and door (Phase 6)
 
-- Recognition stays on the laptop. `yolobit.py` only sees `DOOR:PIN`, `DOOR:OPEN` and `DOOR:CLOSE`. No image, no model and no new Adafruit feed on the board.
+- Recognition stays on the laptop. The board only sees `LIGHT:`, `FAN:` and `DOOR:OPEN` / `DOOR:CLOSE`, then answers `ACK:`. No image and no model on the board. No new Adafruit feed for face.
 - `FACE_ENABLE` defaults off. The sensor loop must keep running when the model file or the camera is missing.
-- Door decisions go through `door.DoorController` and are applied only inside `Gateway.step`. Web and face threads call `request_door` / `submit_face`, which only queue. Do not wipe the serial input buffer while waiting for the next sensor sample: a `DOOR:` ack is sitting in it.
-- Servo pin comes from `config.SERVO_PIN`. `parse_servo_pin` rejects P0 and P14. Angles stay in `yolobit.py` (`DOOR_CLOSED_ANGLE`, `DOOR_OPEN_ANGLE`).
+- A matched face calls `Gateway.command("cua", "OPEN", "FaceAI")`. The manual door button uses the same path, so the door still opens when recognition fails.
+- Fan is P1 and the servo is P4. Angles stay in `yolobit.py`. The board closes the door itself after 10 s and sends `ACK:DOOR:CLOSE`.
 - A training run that is synthetic must not write `models/face/chosen.json`. Face images and model files stay under `code/data/` and `code/models/`, both gitignored. Report numbers go to `docs/face/`.
 - Image paths may be Unicode. Read and write them with `face_engine.read_image` / `write_image` (`np.fromfile`), not `cv2.imread`.
-
 ## Style
 
 - Comments, docstrings and `print` text: Vietnamese without accents (`Khong mo duoc COM`), in Python, JS, CSS and HTML alike. Text sent to Adafruit feeds or shown in the UI (including API error messages): Vietnamese with accents (`Nhiệt độ cao`).

@@ -1,20 +1,18 @@
 # -*- coding: utf-8 -*-
-"""Du lieu that cho web (WEB_DATA=live): doc feed Adafruit IO theo PROTOCOL.md v0.1.2.
+"""Du lieu that cho web (WEB_DATA=live): doc feed Adafruit IO theo PROTOCOL.md v0.1.1.
 
 Cung giao dien voi web_mock.MockHome: snapshot, set_thresholds, command, simulate, log, tick.
 web_gateway.GatewayHome ke thua class nay, chi doi nguon du lieu (chay gateway ngay trong web).
 
 Co du lieu that:
 - cam bien nhiet-do, do-am, anh-sang va cau canh-bao (gateway.py ghi)
-- nguong nguong-nhiet, nguong-am, nguong-sang: doc va ghi
+- nguong nguong-nhiet, nguong-am, nguong-sang: doc va ghi (PROTOCOL.md v0.1.1)
 - lich su cam bien: doc tu lich su feed tren Adafruit luc mo web (UC06)
-- cua va nhan dien: khong co feed Adafruit. Che do live doc file trang thai ma gateway.py ghi
-  (data/runtime/status.json) va gui lenh cua qua data/runtime/door_cmd.json.
 
 Chua co, tra loi ro rang thay vi doan hop dong:
-- den, quat: can PROTOCOL.md v0.2.0 (Gate 2)
+- den, quat, cua: can PROTOCOL.md v0.2.0 (Gate 2)
 - nhat ky dieu khien/canh bao luu lau: D5 chua chot; o day chi giu trong RAM
-- giong noi (Phase 7)
+- khuon mat (Phase 6), giong noi (Phase 7)
 """
 
 import queue
@@ -24,16 +22,13 @@ import time
 import config
 from module1 import Reading
 from module2 import Alert, Thresholds, ThresholdPublisher, evaluate, take_cloud_value
-from runtime_store import read_json, write_door_command
 from web_mock import (
     DOOR_RELOCK,
-    DEVICE_NAMES,
     MAX_ENTRIES,
     SENSOR_LOG_EVERY,
     CommandError,
     alert_kinds,
     filter_log,
-    parse_command,
     parse_thresholds,
 )
 
@@ -74,16 +69,6 @@ class LiveHome:
         self.next_id = 1
         self.client = None
         self.publisher = None
-        self.face = None
-        self.face_runtime = _runtime_off()
-        self.bridge_face = False
-        self.bridge_door = False
-        self.bridge_seq = None
-        self.door_locked = True
-        self.door_relock_at = None
-        self.door_at = now
-        self.door_relock = DOOR_RELOCK
-        self.servo_pin = None
         self._add_log(now, "system", "Web", "Mở web, dữ liệu thật (" + self.MODE + ")", "Khởi tạo", "neutral")
         if connect:
             # Noi truoc (che do gateway mo cong COM o day), loi thi dung ngay; lich su doc sau cung
@@ -163,25 +148,22 @@ class LiveHome:
                 "mode": self.MODE,
                 "features": {
                     "devices": False,
-                    "face": self.bridge_face,
+                    "face": False,
                     "voice": False,
                     "simulate": False,
                     "log": True,
                     "thresholds_write": self.publisher is not None,
-                    "door": self.bridge_door,
                 },
                 "gateway": self._gateway_view(),
                 "sensors": self._sensors_view(now),
                 "thresholds": self._thresholds_view(),
                 "alert": self._alert_view(),
-                "devices": {"door": self._door_view(now)} if self.bridge_door else None,
-                "face": self.face,
-                "face_runtime": self.face_runtime,
+                "devices": None,
+                "face": None,
                 "voice": None,
                 "colors": [],
                 "voice_commands": [],
-                "door_relock": self.door_relock,
-                "servo_pin": self.servo_pin,
+                "door_relock": DOOR_RELOCK,
             }
 
     def log(self, kind="all", date="", query="", page=1):
@@ -232,17 +214,7 @@ class LiveHome:
     # ---------- lenh: chua co hop dong ----------
 
     def command(self, device, body, source="Giao diện web"):
-        if device == "door":
-            return self._command_door(body, source)
-        raise CommandError(503, "Đèn và quạt chưa có trong giao thức (chờ v0.2.0).")
-
-    def _command_door(self, body, source):
-        """Che do live khong giu cong COM. Ghi file de gateway.py doc va gui DOOR xuong board."""
-        changes = parse_command("door", body)
-        if not self.bridge_door:
-            raise CommandError(503, "Chưa thấy gateway giữ cổng COM. Chạy gateway.py hoặc đặt WEB_DATA=gateway.")
-        write_door_command(config.DOOR_CMD_PATH, changes["locked"], source)
-        return {"device": "door", "status": "sent", "requested": changes}
+        raise CommandError(503, "Chưa có điều khiển thật: cần PROTOCOL.md v0.2.0 (Gate 2).")
 
     def simulate(self, kind):
         raise CommandError(404, "Nút mô phỏng chỉ có khi WEB_DATA=mock.")
@@ -261,20 +233,22 @@ class LiveHome:
                     self.mqtt_ok = data
                 elif kind == "feed":
                     self._take(now, data[0], data[1])
+                elif kind == "device":
+                    self._take_device(now, *data)
                 elif kind == "face":
-                    self._remember_face(now, data)
+                    self._take_face(now, data)
                 elif kind == "face_status":
-                    self.face_runtime = data
-                    self.bridge_face = True
-                    self.emit("face", {"ok": None, "runtime": data, "at": now})
-                elif kind == "door":
-                    self.bridge_door = True
-                    self._apply_door_view(now, data)
-                elif kind == "door_error":
-                    self._add_log(now, "control", DEVICE_NAMES["door"], "Board báo lỗi servo: " + str(data), "Lỗi", "danger")
+                    self._take_face_status(data)
             self._check_online(now)
-            if self.MODE == "live":
-                self._poll_bridge(now)
+
+    def _take_device(self, now, device, value, ok, source, reason):
+        """Ket qua lenh den/quat/cua. Chi GatewayHome co thiet bi that."""
+
+    def _take_face(self, now, result):
+        """Ket qua nhan dien. GatewayHome ghi nhat ky va day len web."""
+
+    def _take_face_status(self, status):
+        """Trang thai webcam va model."""
 
     def _take(self, now, feed, text):
         if feed == config.FEED_ALERT:
@@ -383,108 +357,3 @@ class LiveHome:
         if self.alert is None:
             return {"ok": True, "led": "GREEN", "text": "Chưa có số liệu"}
         return {"ok": self.alert.ok, "led": self.alert.led, "text": self.alert.text}
-
-    def _door_view(self, now):
-        relock_in = None
-        if self.door_relock_at is not None:
-            relock_in = max(0, round(self.door_relock_at - now, 1))
-        return {
-            "device": "door",
-            "locked": self.door_locked,
-            "relock_in": relock_in,
-            "at": self.door_at if self.door_at is not None else now,
-        }
-
-    def _apply_door_view(self, now, view):
-        locked = bool(view.get("locked"))
-        changed = locked != self.door_locked
-        self.door_locked = locked
-        self.door_at = view.get("at", now)
-        if view.get("relock_in") is None:
-            self.door_relock_at = None
-        else:
-            self.door_relock_at = now + float(view["relock_in"])
-        if changed:
-            source = view.get("source") or "Gateway"
-            if locked:
-                detail = "Khóa cửa"
-            else:
-                detail = "Mở khóa cửa, tự khóa sau " + config.fmt_num(self.door_relock) + " giây"
-            self._add_log(now, "control", DEVICE_NAMES["door"], detail + " (" + source + ")", "Đã nhận", "ok")
-        self.emit("device", self._door_view(now))
-
-    def _remember_face(self, now, face):
-        self.face = dict(face)
-        self.bridge_face = True
-        if face.get("ok") in (True, False):
-            detail, status, tone = face_log_parts(face)
-            self._add_log(now, "face", "Camera laptop (Gateway)", detail, status, tone)
-        self.emit("face", self.face)
-
-    def _poll_bridge(self, now):
-        """WEB_DATA=live: gateway.py chay o cua so khac va ghi status.json."""
-        if not config.FACE_BRIDGE:
-            return
-        status = read_json(config.FACE_STATUS_PATH)
-        if not status or status.get("seq") == self.bridge_seq:
-            return
-        self.bridge_seq = status.get("seq")
-        runtime = status.get("face_runtime")
-        if isinstance(runtime, dict):
-            self.face_runtime = runtime
-            self.bridge_face = True
-            self.emit("face", {"ok": None, "runtime": runtime, "at": now})
-        if status.get("servo_pin"):
-            self.servo_pin = status["servo_pin"]
-        if status.get("door_relock"):
-            try:
-                self.door_relock = float(status["door_relock"])
-            except (TypeError, ValueError):
-                pass
-        door = status.get("door")
-        if isinstance(door, dict) and "locked" in door:
-            self.bridge_door = True
-            self._apply_door_view(now, door)
-        face = status.get("face")
-        if isinstance(face, dict) and face.get("ok") in (True, False):
-            if self.face is None or face.get("at") != self.face.get("at"):
-                self._remember_face(now, face)
-
-
-def _runtime_off():
-    return {
-        "enabled": False,
-        "ready": False,
-        "model": None,
-        "detector": "yunet",
-        "camera": "off",
-        "message": "",
-        "threshold": None,
-        "metric": None,
-        "people": [],
-    }
-
-
-def face_log_parts(face):
-    """Cau nhat ky co dau, dung cho ca che do gateway va live."""
-    score = face.get("score")
-    threshold = face.get("threshold")
-    metric = face.get("metric")
-    name = face.get("name") or "không rõ"
-    if score is None or threshold is None:
-        percent = face.get("confidence")
-        if face.get("ok"):
-            return "Nhận diện " + name + " (" + str(percent) + "%) — mở khóa cửa", "Thành công", "ok"
-        return "Khuôn mặt không xác định (" + str(percent) + "%) — từ chối mở khóa", "Từ chối", "danger"
-    score_text = "{:.2f}".format(float(score))
-    limit_text = "{:.2f}".format(float(threshold))
-    if metric == "lbph":
-        kind = "khoảng cách "
-        passed = "≤" if face.get("ok") else ">"
-    else:
-        kind = "điểm "
-        passed = "≥" if face.get("ok") else "<"
-    detail_score = kind + score_text + " " + passed + " ngưỡng " + limit_text
-    if face.get("ok"):
-        return "Nhận diện " + name + " (" + detail_score + ") — mở khóa cửa", "Thành công", "ok"
-    return "Từ chối, gần nhất " + name + " (" + detail_score + ") — cửa giữ nguyên", "Từ chối", "danger"

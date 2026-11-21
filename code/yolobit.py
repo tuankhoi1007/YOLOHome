@@ -9,11 +9,16 @@ Cam bien:
   Cam bien anh sang vao cong P0
 
 Moi 2 giay in mot dong, vi du: T:31.2,H:60,L:44
-Doc lenh LED:RED hoac LED:GREEN, va DOOR:OPEN / DOOR:CLOSE / DOOR:PIN:P4 tu laptop.
+Doc lenh tu laptop (docs/PROTOCOL.md v0.2.1):
+  LED:RED / LED:GREEN      canh bao / binh thuong (Module 2)
+  LIGHT:OFF / LIGHT:rrggbb den thu cong (Module 3)
+  FAN:0-100                quat, dieu xung (PWM) o P1
+  DOOR:OPEN / DOOR:CLOSE   servo cua o P4
+Xong viec thi tra ACK:LIGHT:..., ACK:FAN:n, ACK:DOOR:... Cua tu dong sau 10 giay va tra ACK:DOOR:CLOSE.
 
 Den 4 LED RGB cam cong P14 (khong cam chung P0 voi cam bien anh sang).
-Vuot nguong: 4 den do nhap nhay. Trong nguong: 4 den xanh la.
-Ma tran 5x5 chi co mau do, nen RED sang het, GREEN mot diem giua.
+Canh bao: 4 den do nhap nhay (uu tien hon den thu cong). Het canh bao: 4 den ve mau thu cong,
+mac dinh tat. Ma tran 5x5 (LED RGB): RED sang do het, GREEN mot diem xanh o giua.
 """
 
 from yolobit import *
@@ -86,8 +91,9 @@ def read_climate():
     try:
         if hasattr(_dht, "read_dht20"):
             _dht.read_dht20()
-        temp = _call(_dht, ("temperature", "dht20_temp", "temp"))
-        humid = _call(_dht, ("humidity", "dht20_humid", "humid"))
+        # Thu vien AIOT KIT cua OhStem dung dht20_temperature() / dht20_humidity().
+        temp = _call(_dht, ("dht20_temperature", "temperature", "dht20_temp", "temp"))
+        humid = _call(_dht, ("dht20_humidity", "humidity", "dht20_humid", "humid"))
         return temp, humid
     except Exception as exc:
         print("Loi DHT20:", exc)
@@ -124,13 +130,30 @@ _mode = "GREEN"
 _lit = True
 _tick = 0
 
-# Goc servo. Neu canh quay nguoc chieu cua, doi hai so nay roi nap lai board.
-# 0 = cua dong, 90 = cua mo. Chan mac dinh P4 (tai lieu servo OhStem), laptop co the doi bang DOOR:PIN.
-DOOR_CLOSED_ANGLE = 0
-DOOR_OPEN_ANGLE = 90
-_SERVO_BLOCKED = ("P0", "P14")
-_servo = None
-_servo_name = ""
+# ---------- Module 3: den thu cong, quat, cua ----------
+FAN_PIN = pin1
+DOOR_PIN = pin4
+# write_analog cua Yolo:Bit dung thang 0-1023 (da thu tren board 2026-11-21: 1023 quay het cong suat).
+# So lon hon 1023 lam lenh loi nen quat khong chay.
+PWM_MAX = 1023
+# Goc servo. Do tren mach that roi sua hai so nay.
+ANGLE_CLOSE = 0
+ANGLE_OPEN = 90
+# Cua tu dong sau 10 giay. Nha xung servo sau 1.5 giay cho do nong va do dien (sach chuong 12).
+DOOR_AUTO_CLOSE_MS = 10000
+SERVO_RELEASE_MS = 1500
+# Quat va servo khong khoi dong trong vong 0.5 giay cua nhau, tranh sut ap cung luc.
+MOTOR_GAP_MS = 500
+# Den thu cong chi sang 40% de 4 LED trang khong qua choi va do hao nguon.
+LIGHT_SCALE = 0.4
+
+_light = "OFF"
+_fan = 0
+_door_open = False
+_door_close_at = None
+_servo_release_at = None
+_last_motor = None
+_waiting = {}
 
 
 def _open_rgb():
@@ -173,22 +196,44 @@ def _fill(color):
         print("Loi RGB:", exc)
 
 
+def _manual_color():
+    """Mau den thu cong (Module 3). Mac dinh tat."""
+    if _light == "OFF":
+        return (0, 0, 0)
+    red = int(int(_light[0:2], 16) * LIGHT_SCALE)
+    green = int(int(_light[2:4], 16) * LIGHT_SCALE)
+    blue = int(int(_light[4:6], 16) * LIGHT_SCALE)
+    return (red, green, blue)
+
+
+def _matrix(alert):
+    """Ma tran 5x5 cua Yolo:Bit la LED RGB: set_pixel nhan mau '#rrggbb', khong nhan so 0-9.
+    Loi ma tran chi in ra, khong lam dung vong lap doc cam bien."""
+    try:
+        display.clear()
+        if alert:
+            for x in range(5):
+                for y in range(5):
+                    display.set_pixel(x, y, "#ff0000")
+        elif alert is False:
+            display.set_pixel(2, 2, "#00ff00")
+    except Exception as exc:
+        print("Loi ma tran:", exc)
+
+
 def render():
-    """RED nhap nhay. GREEN sang deu. Ma tran do sang theo cung trang thai."""
+    """RED nhap nhay. GREEN sang deu. Ma tran theo cung trang thai."""
     on = _mode != "RED" or _lit
     if not on:
         _fill((0, 0, 0))
-        display.clear()
+        _matrix(None)
         return
     if _mode == "RED":
         _fill((80, 0, 0))
-        for x in range(5):
-            for y in range(5):
-                display.set_pixel(x, y, 9)
+        _matrix(True)
         return
-    _fill((0, 40, 0))
-    display.clear()
-    display.set_pixel(2, 2, 4)
+    _fill(_manual_color())
+    _matrix(False)
 
 
 def set_led(color):
@@ -212,129 +257,108 @@ def tick_blink():
     render()
 
 
-def _pin_by_name(name):
-    """P4 -> pin4. P0 va P14 khong gan servo."""
-    if name in _SERVO_BLOCKED:
-        print("Khong gan servo vao", name)
-        return None
-    if len(name) < 2 or name[0] != "P":
-        print("Chan servo khong hop le:", name)
-        return None
-    obj = globals().get("pin" + name[1:])
-    if obj is None:
-        print("Khong co chan", name)
-        return None
-    return obj
-
-
-def _move_servo(angle):
-    if _servo is None:
+def _is_hex(text):
+    if len(text) != 6:
         return False
-    kind, dev = _servo
+    for ch in text:
+        if ch not in "0123456789abcdef":
+            return False
+    return True
+
+
+def set_light(value):
+    """value: 'OFF' hoac 'rrggbb' (chu thuong)."""
+    global _light
+    _light = value
+    render()
+    print("ACK:LIGHT:" + value)
+
+
+def set_fan(percent):
+    global _fan
+    _fan = percent
     try:
-        if kind == "lib":
-            if hasattr(dev, "angle"):
-                dev.angle(angle)
-            elif hasattr(dev, "set_angle"):
-                dev.set_angle(angle)
-            else:
-                dev.write(angle)
-            return True
-        if kind == "pin":
-            if hasattr(dev, "set_servo_angle"):
-                dev.set_servo_angle(angle)
-            else:
-                dev.servo_write(angle)
-            return True
-        # PWM 50 Hz. Xung 1.0 ms o 0 do, 2.0 ms o 180 do, chu ky 20 ms.
-        if angle < 0:
-            angle = 0
-        if angle > 180:
-            angle = 180
-        pulse_us = 1000 + int(angle * 1000 / 180)
-        if hasattr(dev, "duty_ns"):
-            dev.duty_ns(pulse_us * 1000)
-        elif hasattr(dev, "duty_u16"):
-            dev.duty_u16(int(pulse_us * 65535 / 20000))
-        else:
-            dev.duty(int(pulse_us * 1023 / 20000))
-        return True
+        FAN_PIN.write_analog(int(percent * PWM_MAX / 100))
     except Exception as exc:
-        print("Loi servo:", exc)
-        return False
+        print("Loi quat P1:", exc)
+    print("ACK:FAN:" + str(percent))
 
 
-def set_servo_pin(name):
-    """Gan servo vao chan laptop yeu cau. That bai thi in DOOR:ERR, khong doi P0/P14."""
-    global _servo, _servo_name
-    name = name.strip().upper()
-    pin = _pin_by_name(name)
-    if pin is None:
-        print("DOOR:ERR")
-        return
+def move_door(open_it):
+    """Quay servo roi hen gio nha xung. Mo cua thi hen luon gio tu dong."""
+    global _door_open, _door_close_at, _servo_release_at
+    _door_open = open_it
+    now = time.ticks_ms()
     try:
-        from servo import Servo
-
-        _servo = ("lib", Servo(pin))
-        _servo_name = name
-        print("Servo: thu vien servo, cong", name)
+        DOOR_PIN.servo_write(ANGLE_OPEN if open_it else ANGLE_CLOSE)
     except Exception as exc:
-        print("Khong co thu vien servo:", exc)
-        try:
-            from machine import PWM
-
-            sig = pin.pin if hasattr(pin, "pin") else pin
-            _servo = ("pwm", PWM(sig, freq=50))
-            _servo_name = name
-            print("Servo: PWM 50Hz, cong", name)
-        except Exception as pwm_exc:
-            if hasattr(pin, "set_servo_angle") or hasattr(pin, "servo_write"):
-                _servo = ("pin", pin)
-                _servo_name = name
-                print("Servo: ham san tren chan", name)
-            else:
-                print("Khong mo duoc servo:", pwm_exc)
-                print("DOOR:ERR")
-                return
-    # Khoa ngay khi vua gan, de phan cung khop trang thai "dang khoa" tren web.
-    if not _move_servo(DOOR_CLOSED_ANGLE):
-        print("DOOR:ERR")
-        return
-    print("DOOR:PIN:" + name)
-    print("DOOR:CLOSE")
+        print("Loi servo P4:", exc)
+    _servo_release_at = time.ticks_add(now, SERVO_RELEASE_MS)
+    _door_close_at = time.ticks_add(now, DOOR_AUTO_CLOSE_MS) if open_it else None
+    print("ACK:DOOR:" + ("OPEN" if open_it else "CLOSE"))
 
 
-def set_door(open_door):
-    if _servo is None:
-        set_servo_pin("P4")
-    if _servo is None:
-        return
-    angle = DOOR_OPEN_ANGLE if open_door else DOOR_CLOSED_ANGLE
-    if not _move_servo(angle):
-        print("DOOR:ERR")
-        return
-    if open_door:
-        print("DOOR:OPEN")
+def _run_motor(name, value):
+    """Chay quat hoac cua. Neu motor kia vua chay chua du 0.5 giay thi cho (xem run_waiting)."""
+    global _last_motor
+    now = time.ticks_ms()
+    if _last_motor is not None and _last_motor[0] != name:
+        if time.ticks_diff(now, _last_motor[1]) < MOTOR_GAP_MS:
+            _waiting[name] = value
+            return
+    _last_motor = (name, now)
+    if name == "FAN":
+        set_fan(value)
     else:
-        print("DOOR:CLOSE")
+        move_door(value)
 
 
-def _handle_line(line):
-    if line in ("LED:RED", "LED:GREEN"):
-        set_led(line.split(":")[1])
+def run_waiting():
+    """Goi moi nhip 0.1 giay: chay lenh dang cho, tu dong cua, nha xung servo. Khong sleep."""
+    global _door_close_at, _servo_release_at
+    for name in list(_waiting):
+        value = _waiting.pop(name)
+        _run_motor(name, value)
+    now = time.ticks_ms()
+    if _door_close_at is not None and time.ticks_diff(now, _door_close_at) >= 0:
+        _run_motor("DOOR", False)
+    if _servo_release_at is not None and time.ticks_diff(now, _servo_release_at) >= 0:
+        _servo_release_at = None
+        try:
+            DOOR_PIN.servo_release()
+        except Exception as exc:
+            print("Loi nha servo:", exc)
+
+
+def handle_line(line):
+    """Mot dong lenh tu laptop. Dong sai thi bo qua."""
+    upper = line.strip().upper()
+    if upper in ("LED:RED", "LED:GREEN"):
+        set_led(upper.split(":")[1])
         return
-    if line == "DOOR:OPEN":
-        set_door(True)
+    if ":" not in upper:
         return
-    if line == "DOOR:CLOSE":
-        set_door(False)
-        return
-    if line.startswith("DOOR:PIN:"):
-        set_servo_pin(line.split(":", 2)[-1])
+    name, value = upper.split(":", 1)
+    if name == "LIGHT":
+        if value == "OFF":
+            set_light("OFF")
+        elif _is_hex(value.lower()):
+            set_light(value.lower())
+    elif name == "FAN":
+        try:
+            percent = int(value)
+        except ValueError:
+            return
+        if 0 <= percent <= 100:
+            _run_motor("FAN", percent)
+    elif name == "DOOR":
+        if value == "OPEN":
+            _run_motor("DOOR", True)
+        elif value == "CLOSE":
+            _run_motor("DOOR", False)
 
 
 def poll_led():
-    """Doc ca lenh den va lenh cua. Ten cu giu de vong lap khong doi."""
     global _buf
     if _poll is None:
         return
@@ -343,20 +367,22 @@ def poll_led():
         if not chunk:
             break
         if chunk in "\n\r":
-            line = _buf.strip().upper()
+            line = _buf
             _buf = ""
-            if line:
-                _handle_line(line)
+            if line.strip():
+                handle_line(line)
         else:
             _buf += chunk
-            # DOOR:PIN:P16 dai 12 ky tu. 40 cho du cho, qua do la rac thi bo.
-            if len(_buf) > 40:
+            if len(_buf) > 24:
                 _buf = ""
 
 
 _open_dht()
 _open_rgb()
 set_led("GREEN")
+# Trang thai ban dau (PROTOCOL): den tat, quat 0, cua dong
+set_fan(0)
+move_door(False)
 print("Yolo:Bit san sang")
 
 while True:
@@ -377,4 +403,5 @@ while True:
     for _ in range(20):
         poll_led()
         tick_blink()
+        run_waiting()
         time.sleep(0.1)

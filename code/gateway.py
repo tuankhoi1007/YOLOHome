@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
-"""Chay Module 1 va Module 2 cung luc.
+"""Chay Module 1, 2 va 3 cung luc.
 
 Module 1 doc USB roi gui nhiet do, do am, anh sang len Adafruit.
 Module 2 so nguong, gui feed canh-bao, va gui LED:RED / LED:GREEN xuong board.
+Module 3 nhan lenh den / quat / cua tu feed (hoac tu web), gui xuong board, cho ack.
 
 Username va Active Key nam trong file .env, cung thu muc voi file nay.
 
@@ -14,23 +15,27 @@ import queue
 import time
 
 import config
-from door import DoorController, format_pin_command, parse_door_ack, parse_servo_pin
+from runtime_store import append_jsonl, write_json
 from module1 import (
+    DEVICE_BY_FEED,
+    DeviceControl,
     Reading,
     SensorPublisher,
     open_serial,
+    parse_ack,
     parse_line,
     send_led,
+    send_line,
 )
 from module2 import AlertPublisher, Thresholds, evaluate
-from runtime_store import append_jsonl, read_json, write_json
 
 
 class Gateway:
     """Vong Module 1 + 2.
 
     listener (tuy chon) duoc bao moi khi co so moi, de web hien thi:
-    on_mqtt(ok), on_reading(reading), on_alert(alert), on_thresholds(limits).
+    on_mqtt(ok), on_reading(reading), on_alert(alert), on_thresholds(limits),
+    on_device(device, value, ok, source, reason).
     Cac ham nay chay trong luong cua gateway; chung chi nen bo viec vao hang doi.
     """
 
@@ -43,28 +48,22 @@ class Gateway:
         self.reading = Reading()
         # Tin MQTT va nguong tu web deu vao day; chi luong gateway doc ra
         self.incoming = queue.Queue()
+        # Lenh dieu khien tu luong khac (web): (thiet bi, gia tri da chuan hoa, nguon)
+        self.commands = queue.Queue()
+        self.devices = DeviceControl(self._write_line, self._publish_feed, listener)
         self.sensors = None
         self.alerts = None
         self.last_led = None
-        self.clock = time.time
-        self.last_seen = self.clock()
+        self.last_seen = time.time()
         self.told_json = False
         self.next_sample = 0.0
-        self.pending_line = ""
-        # Cua va nhan dien: luong khac chi bo vao hang, step() moi cham serial.
-        self.door = DoorController(config.DOOR_OPEN_SECONDS, lambda: self.clock())
-        self._door_queue = queue.Queue()
         self._face_queue = queue.Queue()
-        self._pin_sent = False
-        self.servo_pin = config.SERVO_PIN
         self.face_loop = None
         self.face_runtime = _face_off()
         self.last_face = None
-        self._status_seq = 1
-        self._door_cmd_id = 0
         self.status_path = config.FACE_STATUS_PATH
         self.log_path = config.FACE_LOG_PATH
-        self.cmd_path = config.DOOR_CMD_PATH
+        self._status_seq = 0
 
     def _tell(self, name, *args):
         if self.listener is None:
@@ -73,8 +72,19 @@ class Gateway:
         if method is not None:
             method(*args)
 
+    def _write_line(self, line):
+        if self.ser is None:
+            return False
+        return send_line(self.ser, line)
+
+    def _publish_feed(self, feed, value):
+        if self.client is None:
+            return
+        self.client.publish(config.topic(feed), payload=value)
+        print("Gui:", feed + "=" + value)
+
     def start(self):
-        print("Gateway: module 1 + module 2")
+        print("Gateway: module 1 + module 2 + module 3")
         print(
             "Feed:",
             config.FEED_TEMP,
@@ -82,6 +92,8 @@ class Gateway:
             config.FEED_LIGHT,
             "| canh bao:",
             config.FEED_ALERT,
+            "| dieu khien:",
+            ", ".join(config.CONTROL_FEEDS),
         )
         self.ser = open_serial()
         self.feed_keys = config.ensure_feeds(config.ALL_FEEDS)
@@ -94,7 +106,7 @@ class Gateway:
                 self._tell("on_mqtt", False)
                 return
             print("Da ket noi Adafruit")
-            for feed in config.THRESHOLD_FEEDS:
+            for feed in config.THRESHOLD_FEEDS + config.CONTROL_FEEDS:
                 if self.feed_keys is None or feed in self.feed_keys:
                     client.subscribe(config.topic(feed))
             self._tell("on_mqtt", True)
@@ -113,22 +125,21 @@ class Gateway:
         self.client.loop_start()
         self.sensors = SensorPublisher(self.client)
         self.alerts = AlertPublisher(self.client)
-        print("Moi lan doc cach nhau", config.fmt_num(config.READ_INTERVAL), "giay")
-        self._arm_cmd_cursor()
-        self._ensure_pin()
+        self.devices.start()
         self._start_face()
+        print("Moi lan doc cach nhau", config.fmt_num(config.READ_INTERVAL), "giay")
 
     def set_threshold(self, feed, value):
         """Doi nguong tu luong khac (web). Di cung duong voi tin MQTT tu feed nguong-*."""
         payload = config.fmt_num(value).encode("utf-8")
         self.incoming.put((config.topic(feed), payload))
 
-    def request_door(self, locked, source):
-        """Xin mo hoac khoa cua tu luong khac. step() moi ghi serial."""
-        self._door_queue.put((bool(locked), source))
+    def command(self, device, value, source):
+        """Gui lenh tu luong khac (web). value da qua module1.NORMALIZERS."""
+        self.commands.put((device, value, source))
 
     def submit_face(self, kind, payload):
-        """Luong camera goi ham nay. kind la 'status' hoac 'attempt'."""
+        """Webcam chay o luong khac. Chi bo ket qua vao hang doi."""
         self._face_queue.put((kind, payload))
 
     def apply_alert(self):
@@ -142,7 +153,14 @@ class Gateway:
         if alert is not None:
             self._tell("on_alert", alert)
 
-    def drain_thresholds(self):
+    def drain_incoming(self):
+        """Tin tu feed (nguong, dieu khien) va lenh tu web. Chi luong gateway goi ham nay."""
+        while True:
+            try:
+                device, value, source = self.commands.get_nowait()
+            except queue.Empty:
+                break
+            self.devices.request(device, value, source)
         changed = False
         while True:
             try:
@@ -151,6 +169,9 @@ class Gateway:
                 break
             feed = topic.rsplit("/", 1)[-1]
             text = payload.decode("utf-8", errors="ignore").strip()
+            if feed in DEVICE_BY_FEED:
+                self.devices.from_feed(feed, text)
+                continue
             try:
                 value = float(text)
             except ValueError:
@@ -162,93 +183,25 @@ class Gateway:
             self._tell("on_thresholds", self.limits)
             self.apply_alert()
 
-    def step(self):
-        """Mot vong: nhan nguong, lenh cua, doc mot dong USB, so nguong, gui feed va lenh den.
-
-        Lenh cua duoc gui ca khi dang cho mau cam bien ke tiep, de web khong bi qua 3 giay.
-        Khong xoa buffer serial trong luc cho: ack DOOR: nam trong buffer do.
-        """
-        self.drain_thresholds()
-        self.drain_face()
-        self.drain_door()
-        if self._waiting_sample():
-            return
-        line = self._readline()
-        if not line:
-            if self.clock() - self.last_seen > 5:
-                print("5 giay roi, board khong gui gi qua USB")
-                self.last_seen = self.clock()
-            return
-        self._handle_line(line)
-
-    def _waiting_sample(self):
-        if self.clock() >= self.next_sample:
+    def handle_ack(self, line):
+        """Dong ACK tu board. Tra ve True neu la ACK (ke ca ACK la), de khong xu ly nhu so do."""
+        if not line.upper().startswith("ACK:"):
             return False
-        self._poll_ready_lines()
-        time.sleep(0.05)
+        found = parse_ack(line)
+        if found is None:
+            print("Bo qua ACK la:", line)
+        else:
+            self.devices.ack(found[0], found[1])
         return True
 
-    def _poll_ready_lines(self):
-        """Doc nhung dong da nam trong buffer. Giu lai dong cam bien moi nhat."""
-        while getattr(self.ser, "in_waiting", 0):
-            raw = self.ser.readline()
-            if not raw:
-                break
-            line = raw.decode("utf-8", errors="ignore").strip()
-            if not line:
-                continue
-            if self._take_control(line):
-                continue
-            self.pending_line = line
-
-    def _readline(self):
-        if self.pending_line:
-            line = self.pending_line
-            self.pending_line = ""
-            return line
-        raw = self.ser.readline()
-        if not raw:
-            return ""
-        return raw.decode("utf-8", errors="ignore").strip()
-
-    def _handle_line(self, line):
-        self.last_seen = self.clock()
-        print("Nhan:", line)
-        if line.startswith("{") and not self.told_json:
-            self.told_json = True
-            print("Board in JSON. Lenh den van la LED:RED / LED:GREEN.")
-        if self._take_control(line):
-            return
-        found = parse_line(line)
-        if found is None:
-            print("Bo qua dong nay. Can dang T:31.2,H:60,L:44")
-            return
-        self.reading.update(found)
-        print("Doc:", self.reading.summary())
-        self._tell("on_reading", self.reading)
-        self.apply_alert()
-        self.next_sample = self.clock() + config.READ_INTERVAL
-
-    def _take_control(self, line):
-        """RGB va DOOR la ack, khong phai so lieu. Tra ve True neu da xu ly."""
-        if line.startswith("RGB:RED") or line.startswith("RGB:GREEN"):
-            print("Board da doi den:", line.split(":", 1)[-1])
-            return True
-        ack = parse_door_ack(line)
-        if ack is None:
+    def wait_for_sample(self):
+        """Chua den luot lay mau: bo dong so do cu nhung van doc ACK, vi ACK khong lap lai."""
+        if time.time() >= self.next_sample:
             return False
-        kind, value = ack
-        if kind == "state":
-            self.door.ack(value)
-            print("Board xac nhan cua:", "dong" if value else "mo")
-            self._tell("on_door", self.door.view())
-            self._write_status()
-        elif kind == "error":
-            self.door.clear_pending()
-            print("Board bao loi servo:", value)
-            self._tell("on_door_error", value)
-        elif kind == "pin":
-            print("Board nhan chan servo:", value)
+        while self.ser.in_waiting:
+            line = self.ser.readline().decode("utf-8", errors="ignore").strip()
+            self.handle_ack(line)
+        time.sleep(0.05)
         return True
 
     def drain_face(self):
@@ -265,89 +218,56 @@ class Gateway:
                 self._log_attempt(payload)
                 self._tell("on_face", payload)
                 if payload.get("ok"):
-                    self.request_door(False, "FaceAI")
+                    self.command("cua", "OPEN", "FaceAI")
                 self.last_face = payload
                 self._write_status()
 
-    def drain_door(self):
-        self._take_file_cmd()
-        while True:
-            try:
-                locked, source = self._door_queue.get_nowait()
-            except queue.Empty:
-                break
-            self._apply_door(locked, source)
-        action = self.door.tick()
-        if action is not None:
-            self._send_door_action(action)
+    def step(self):
+        """Mot vong: nhan nguong va lenh moi, doc mot dong USB, so nguong, gui feed va lenh den."""
+        self.drain_incoming()
+        self.drain_face()
+        self.devices.expire()
+        if self.wait_for_sample():
+            return
+        line = self.ser.readline().decode("utf-8", errors="ignore").strip()
+        if not line:
+            if time.time() - self.last_seen > 5:
+                print("5 giay roi, board khong gui gi qua USB")
+                self.last_seen = time.time()
+            return
+        self.last_seen = time.time()
+        print("Nhan:", line)
+        if self.handle_ack(line):
+            return
+        if line.startswith("{") and not self.told_json:
+            self.told_json = True
+            print("Board in JSON. Lenh den van la LED:RED / LED:GREEN.")
+        if line.startswith("RGB:RED") or line.startswith("RGB:GREEN"):
+            print("Board da doi den:", line.split(":", 1)[-1])
+            return
+        found = parse_line(line)
+        if found is None:
+            print("Bo qua dong nay. Can dang T:31.2,H:60,L:44")
+            return
+        self.reading.update(found)
+        print("Doc:", self.reading.summary())
+        self._tell("on_reading", self.reading)
+        self.apply_alert()
+        self.next_sample = time.time() + config.READ_INTERVAL
 
-    def _apply_door(self, locked, source):
-        action = self.door.request(locked, source)
-        self._send_door_action(action)
+    def run(self, stop=None):
+        """Chay mai, hoac den khi stop (threading.Event) duoc bat."""
+        while stop is None or not stop.is_set():
+            self.step()
 
-    def _send_door_action(self, action):
-        if action is None:
-            return
-        if action == "REFRESH":
-            self._tell("on_door", self.door.view())
-            self._write_status()
-            return
-        if self.ser is None:
-            print("Khong gui duoc lenh cua: chua mo cong COM")
-            self.door.clear_pending()
-            return
-        self._ensure_pin()
-        line = "DOOR:" + action + "\n"
-        try:
-            self.ser.write(line.encode("ascii"))
-            self.ser.flush()
-        except Exception as exc:
-            print("Khong gui duoc lenh cua:", exc)
-            self.door.clear_pending()
-            return
-        print("Lenh cua:", action)
-
-    def _ensure_pin(self):
-        if self._pin_sent or self.ser is None:
-            return
-        try:
-            pin = parse_servo_pin(config.SERVO_PIN)
-        except ValueError as exc:
-            print("SERVO_PIN khong dung:", exc, "- dung P4")
-            pin = "P4"
-        try:
-            self.ser.write((format_pin_command(pin) + "\n").encode("ascii"))
-            self.ser.flush()
-        except Exception as exc:
-            print("Khong gui duoc chan servo:", exc)
-            return
-        self._pin_sent = True
-        self.servo_pin = pin
-        print("Lenh servo:", format_pin_command(pin))
-
-    def _arm_cmd_cursor(self):
-        """Bo qua lenh cua da nam trong file tu lan chay truoc, tranh mo cua luc khoi dong."""
-        cmd = read_json(self.cmd_path)
-        if not cmd:
-            return
-        try:
-            self._door_cmd_id = int(cmd.get("id") or 0)
-        except (TypeError, ValueError):
-            self._door_cmd_id = 0
-
-    def _take_file_cmd(self):
-        cmd = read_json(self.cmd_path)
-        if not cmd:
-            return
-        try:
-            cmd_id = int(cmd.get("id") or 0)
-        except (TypeError, ValueError):
-            return
-        if cmd_id <= self._door_cmd_id:
-            return
-        self._door_cmd_id = cmd_id
-        source = cmd.get("source") or "Giao diện web"
-        self._apply_door(bool(cmd.get("locked")), source)
+    def close(self):
+        if self.face_loop is not None:
+            self.face_loop.stop()
+        if self.ser is not None:
+            self.ser.close()
+        if self.client is not None:
+            self.client.loop_stop()
+            self.client.disconnect()
 
     def _log_attempt(self, result):
         if result.get("ok"):
@@ -369,8 +289,6 @@ class Gateway:
                 "nguong",
                 result.get("threshold"),
             )
-        if self.log_path is None:
-            return
         append_jsonl(self.log_path, {
             "at": result.get("at"),
             "name": result.get("name"),
@@ -384,15 +302,12 @@ class Gateway:
         })
 
     def _write_status(self):
-        if self.status_path is None:
-            return
         payload = {
             "seq": self._status_seq,
-            "at": self.clock(),
+            "at": time.time(),
             "face": self.last_face,
             "face_runtime": self.face_runtime,
-            "door": self.door.view(),
-            "servo_pin": self.servo_pin,
+            "door": self.devices.confirmed.get("cua"),
             "door_relock": config.DOOR_OPEN_SECONDS,
         }
         self._status_seq += 1
@@ -430,33 +345,15 @@ class Gateway:
             miss_reset=config.FACE_MISS_RESET,
         )
         self.face_loop.start()
-
-    def run(self, stop=None):
-        """Chay mai, hoac den khi stop (threading.Event) duoc bat."""
-        while stop is None or not stop.is_set():
-            self.step()
-
-    def close(self):
-        if self.face_loop is not None:
-            self.face_loop.stop()
-        if self.ser is not None:
-            self.ser.close()
-        if self.client is not None:
-            self.client.loop_stop()
-            self.client.disconnect()
+        self._write_status()
 
 
 def _face_off():
     return {
         "enabled": False,
         "ready": False,
-        "model": None,
-        "detector": "yunet",
         "camera": "off",
         "message": "Nhận diện đang tắt (FACE_ENABLE=0). Cửa vẫn mở được bằng nút Khóa cửa.",
-        "threshold": None,
-        "metric": None,
-        "people": [],
     }
 
 

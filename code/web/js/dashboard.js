@@ -188,10 +188,6 @@ listen({
     renderConnection();
   },
   device: (view) => {
-    if (state && view && view.device === "door" && !state.features.door && !state.features.devices) {
-      reload();
-      return;
-    }
     if (state && state.devices && view && view.device) state.devices[view.device] = view;
     devices.onEvent(view);
     if (view && view.device === "door") ai.onDoor(view);
