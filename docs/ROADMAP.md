@@ -46,7 +46,7 @@ Owner instruction 2026-10-26 (later): finish all of Phase 5 in one run, no per-t
 - [x] 5.3 Login screen from Figma `5:4`. `[medium]`
 - [x] 5.4a Dashboard shell, sensor cards, alert and offline states, threshold modal from `11:593`, `11:1014`, `11:1418`, `28:1829`. `[medium]`
 - [x] 5.4b Device cards and state machines from `181:10`, door auto-lock (D11). `[high]`
-- [x] 5.4c Face and voice panels on mock data, simulate buttons (D11). `[medium]`
+- [x] 5.4c Face and voice panels on mock data, simulate buttons (D11). `[medium]` — 2026-11-21: face simulate buttons removed; the face card is a placeholder until Phase 6. Voice simulate stays.
 - [x] 5.5 Activity log screen from `7:97` and dashboard section 04, on mock data. `[medium]`
 - [ ] 5.6 `web_live.py`: sensors and thresholds after Gate 1, devices after Gate 3, log after D5, face after Gate 6, voice after Gate 7. `[high]` — sensors, alert, thresholds (read and write, `PROTOCOL.md` v0.1.1) and Adafruit sensor history done for `WEB_DATA=live`, not hardware-verified; devices, face, voice and stored log wait for their gates.
 - [x] 5.7 Module 1–2 inside the web: `WEB_DATA=gateway` runs the `gateway.Gateway` loop in `web_server.py` (one program for the demo); web saves thresholds (v0.1.1). `[high]` — not hardware-verified.
@@ -54,9 +54,9 @@ Owner instruction 2026-10-26 (later): finish all of Phase 5 in one run, no per-t
 
 ## Phase 6 — Face recognition (main AI)
 
-- [x] 6.1 Settle D7 (approach, library); plan dataset and internal test set. `[max]` → `plans/phase-6-face.md`
-- [ ] 6.2 Enrol members, train, evaluate on the internal test set; record real accuracy. The pipeline is in the repo. This stays open until real photos replace `docs/face/smoke`. `[max]`
-- [ ] 6.3 Correct face → servo opens door; wrong/failed → stays closed, UI button still works. Code sends `DOOR:OPEN` through Module 3. Not hardware-verified. `[high]`
+- [ ] 6.1 Settle D7 (approach, library); plan dataset and internal test set. `[max]`
+- [ ] 6.2 Enrol members, train, evaluate on the internal test set; record real accuracy. `[max]`
+- [ ] 6.3 Correct face → servo opens door; wrong/failed → stays closed, UI button still works. `[high]`
 - [ ] **Gate 6:** owner reviews the evaluation numbers and the fallback.
 
 ## Phase 7 — Vietnamese voice commands
@@ -84,7 +84,7 @@ Open rows are the owner's to answer. The agent does not decide them, and does no
 | D4 | Which ports for the fan and the servo? (Not P0, not P14.) | Closed 2026-11-20 | Fan (PWM) on P1, door servo on P4 (servo row; changed from P2 by the owner 2026-11-20). | 2.2 |
 | D5 | Where is the Module 4 log stored? Feeds are 10/10 after Module 3. | Open | | Phase 4 |
 | D6 | Web stack, and how does the browser control Adafruit without exposing `AIO_KEY`? | Closed 2026-10-26 | Python stdlib server on the laptop (`code/web_server.py`, `http.server` + SSE) holds the key; plain HTML/CSS/JS in `code/web/`, no build step, no new dependency | — |
-| D7 | Face recognition approach and library. | Closed 2026-11-20 | Laptop only. Compare OpenCV LBPH and YuNet + SFace. A match sends `DOOR:OPEN` on the Module 3 door command. Threshold comes from `face_train.py` on the team's photos, not from the synthetic smoke test. | — |
+| D7 | Face recognition approach and library. | Open | Owner 2026-11-21: a teammate will build Phase 6. This branch has no recognizer, no camera loop and no face model. The dashboard card is a placeholder. | Phase 6 |
 | D8 | Vietnamese speech engine (offline or online). | Open | | Phase 7 |
 | D9 | Test framework: stdlib `unittest`, no new dependency. | Proposed | | 1.1 |
 | D10 | Web login? (Not in the spec; the web can open the door.) | Closed 2026-10-26 | One shared `WEB_PASSWORD` in `.env`, HttpOnly session cookie; no email accounts, no "forgot password" | — |

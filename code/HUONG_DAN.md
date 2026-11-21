@@ -10,14 +10,14 @@ Có hai chương trình, hai chỗ chạy:
 
 | File | Chạy ở đâu | Việc của nó |
 | --- | --- | --- |
-| `yolobit.py` | Trên board, dán vào OhStem App | Đọc DHT20 + ánh sáng, in dòng `T:31.2,H:60,L:44`, nhận `LED:RED` / `LED:GREEN` |
-| `gateway.py` | Trên laptop | Đọc dòng đó qua USB, gửi feed, so ngưỡng, gửi lệnh đèn xuống board |
-| `module1.py` | Laptop, chỉ khi muốn thử cảm biến riêng | Giống nửa thu thập của gateway, không so ngưỡng |
-| `module2.py` | Laptop, chỉ khi không cắm board | Nghe số có sẵn trên Adafruit rồi ghi feed cảnh báo |
-| `config.py` | Không chạy trực tiếp | Đọc `.env`, nối Adafruit |
+| `board/yolobit.py` | Trên board, dán vào OhStem App | Đọc DHT20 + ánh sáng, in dòng `T:31.2,H:60,L:44`, nhận `LED:RED` / `LED:GREEN` |
+| `python -m yolohome.gateway` | Trên laptop | Đọc dòng đó qua USB, gửi feed, so ngưỡng, gửi lệnh đèn xuống board |
+| `python -m yolohome.module1` | Laptop, chỉ khi muốn thử cảm biến riêng | Giống nửa thu thập của gateway, không so ngưỡng |
+| `python -m yolohome.module2` | Laptop, chỉ khi không cắm board | Nghe số có sẵn trên Adafruit rồi ghi feed cảnh báo |
+| `yolohome/config.py` | Không chạy trực tiếp | Đọc `code/.env`, nối Adafruit |
 | `.env` | Không chạy | Username, Active Key, cổng COM, tên feed, ngưỡng mặc định |
 
-OhStem và `gateway.py` không được giữ cùng một cổng COM. OhStem để nạp code. Sau khi lưu xong thì ngắt OhStem, rồi mới chạy gateway.
+OhStem và `python -m yolohome.gateway` không được giữ cùng một cổng COM. OhStem để nạp code. Sau khi lưu xong thì ngắt OhStem, rồi mới chạy gateway.
 
 Feed đang dùng (cột **Key** trên Adafruit, không phải tên hiển thị):
 
@@ -83,7 +83,7 @@ Tài khoản Adafruit miễn phí chỉ có 10 feed. Muốn thêm feed thì ph�
 - [ ] Bấm kết nối **USB**, chọn cổng COM hiện ra. Ghi lại tên cổng (ví dụ `COM11`). Nếu không thấy cổng, cài driver tại [ohstem.vn/driver](https://ohstem.vn/driver) rồi cắm lại.
 - [ ] Nếu cổng khác `COM11`, sửa dòng `COM_PORT` trong `.env` cho trùng, rồi lưu file.
 - [ ] Trên OhStem, bấm nút chuyển sang chế độ **Python**.
-- [ ] Xóa code mẫu. Mở `code/yolobit.py`, chọn hết, dán vào ô soạn thảo.
+- [ ] Xóa code mẫu. Mở `code/board/yolobit.py`, chọn hết, dán vào ô soạn thảo.
 - [ ] Bấm **Chạy** (nút chạy góc dưới).
 - [ ] Mở cửa sổ thông tin / serial trong OhStem.
 
@@ -100,7 +100,7 @@ Thiếu độ ẩm vẫn được, ví dụ `T:31.2,L:44`. Đèn ma trận lúc 
 - [ ] Khi đã thấy dòng `T:...`, bấm **Lưu project vào thiết bị**.
 - [ ] Bấm **ngắt kết nối** trong OhStem. Giữ nguyên dây USB. Đóng hẳn tab OhStem nếu cổng COM vẫn bị chiếm.
 
-Không chạy `python yolobit.py` trên laptop. File đó chỉ chạy trên board.
+Không chạy `python board/yolobit.py` trên laptop. File đó chỉ chạy trên board.
 
 ## 4. Chạy gateway trên laptop
 
@@ -109,7 +109,7 @@ Không chạy `python yolobit.py` trên laptop. File đó chỉ chạy trên boa
 - [ ] Chạy:
 
 ```powershell
-.\.venv\Scripts\python.exe gateway.py
+.\.venv\Scripts\python.exe -m yolohome.gateway
 ```
 
 Đúng khi cửa sổ in lần lượt các dòng kiểu:
@@ -152,8 +152,8 @@ Làm tiếp chỉ khi bước 4 đã thấy số trên Adafruit và đèn đổi
 - [ ] Module 3: đọc feed `den`, `quat`, `cua` rồi điều khiển đèn RGB, quạt, servo.
 - [ ] Module 4: lưu lịch sử cảm biến, lần bật/tắt, lần cảnh báo.
 - [ ] Module 5: dựng dashboard Adafruit theo `docs/ADAFRUIT_DASHBOARD.md`.
-- [ ] Web, dữ liệu giả lập: thêm `WEB_PASSWORD` vào `.env`, chạy `web_server.py`, mở `http://127.0.0.1:8000` trên laptop, đăng nhập được, số đổi mỗi 3 giây, bấm thử đèn, quạt, cửa và các nút mô phỏng. Chi tiết ở mục 6 của `README.md`.
-- [ ] Web chạy luôn Module 1 + 2 (cách demo chính): làm xong bước 3, **không** chạy `gateway.py`, đặt `WEB_DATA=gateway` trong `.env`, chạy `web_server.py`. Cửa sổ in các dòng như bước 4; trên `http://127.0.0.1:8000` thẻ cảm biến đổi theo board trong vòng 5 giây. Hơ tay vào DHT20: dòng LED trên web chuyển đỏ, có thông báo, 4 LED RGB trên board nháy đỏ. Mở **Cấu hình ngưỡng**, lưu nhiệt độ cao hơn số đang đo: feed `nguong-nhiet` trên Adafruit đổi, web về xanh, ma trận trên board về một điểm giữa và 4 LED về màu đèn thủ công.
-- [ ] Web chỉ đọc Adafruit: để `gateway.py` chạy (bước 4), đặt `WEB_DATA=live`, chạy `web_server.py` ở cửa sổ thứ hai. Thẻ cảm biến đổi theo số trên Adafruit.
+- [ ] Web, dữ liệu giả lập: thêm `WEB_PASSWORD` vào `.env`, chạy `python -m yolohome`, mở `http://127.0.0.1:8000` trên laptop, đăng nhập được, số đổi mỗi 3 giây, bấm thử đèn, quạt, cửa và các nút mô phỏng. Chi tiết ở mục 4.2 của `README.md`.
+- [ ] Web chạy luôn Module 1 + 2 (cách demo chính): làm xong bước 3, **không** chạy `python -m yolohome.gateway`, đặt `WEB_DATA=gateway` trong `.env`, chạy `python -m yolohome`. Cửa sổ in các dòng như bước 4; trên `http://127.0.0.1:8000` thẻ cảm biến đổi theo board trong vòng 5 giây. Hơ tay vào DHT20: dòng LED trên web chuyển đỏ, có thông báo, 4 LED RGB trên board nháy đỏ. Mở **Cấu hình ngưỡng**, lưu nhiệt độ cao hơn số đang đo: feed `nguong-nhiet` trên Adafruit đổi, web về xanh, ma trận trên board về một điểm giữa và 4 LED về màu đèn thủ công.
+- [ ] Web chỉ đọc Adafruit: để `python -m yolohome.gateway` chạy (bước 4), đặt `WEB_DATA=live`, chạy `python -m yolohome` ở cửa sổ thứ hai. Thẻ cảm biến đổi theo số trên Adafruit.
 - [ ] Nhận diện khuôn mặt trên webcam laptop, đúng người thì mở servo.
 - [ ] Lệnh giọng nói tiếng Việt cố định cho đèn và quạt, chạy trên mic laptop.

@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """Du lieu that cho web (WEB_DATA=live): doc feed Adafruit IO theo PROTOCOL.md v0.1.1.
 
-Cung giao dien voi web_mock.MockHome: snapshot, set_thresholds, command, simulate, log, tick.
-web_gateway.GatewayHome ke thua class nay, chi doi nguon du lieu (chay gateway ngay trong web).
+Cung giao dien voi yolohome.web.mock.MockHome: snapshot, set_thresholds, command, simulate, log, tick.
+yolohome.web.gateway.GatewayHome ke thua class nay, chi doi nguon du lieu (chay gateway ngay trong web).
 
 Co du lieu that:
 - cam bien nhiet-do, do-am, anh-sang va cau canh-bao (gateway.py ghi)
@@ -19,10 +19,10 @@ import queue
 import threading
 import time
 
-import config
-from module1 import Reading
-from module2 import Alert, Thresholds, ThresholdPublisher, evaluate, take_cloud_value
-from web_mock import (
+from yolohome import config
+from yolohome.module1 import Reading
+from yolohome.module2 import Alert, Thresholds, ThresholdPublisher, evaluate, take_cloud_value
+from yolohome.web.mock import (
     DOOR_RELOCK,
     MAX_ENTRIES,
     SENSOR_LOG_EVERY,
@@ -235,20 +235,10 @@ class LiveHome:
                     self._take(now, data[0], data[1])
                 elif kind == "device":
                     self._take_device(now, *data)
-                elif kind == "face":
-                    self._take_face(now, data)
-                elif kind == "face_status":
-                    self._take_face_status(data)
             self._check_online(now)
 
     def _take_device(self, now, device, value, ok, source, reason):
         """Ket qua lenh den/quat/cua. Chi GatewayHome co thiet bi that."""
-
-    def _take_face(self, now, result):
-        """Ket qua nhan dien. GatewayHome ghi nhat ky va day len web."""
-
-    def _take_face_status(self, status):
-        """Trang thai webcam va model."""
 
     def _take(self, now, feed, text):
         if feed == config.FEED_ALERT:

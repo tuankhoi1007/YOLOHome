@@ -31,6 +31,6 @@ Total with Module 3: 11 blocks, 10 feeds.
 
 ## Check
 
-- Run `gateway.py` (owner, with board): the three gauges and the chart move; `canh-bao` shows `Bình thường`.
+- Run `python -m yolohome.gateway` from `code/` (owner, with board): the three gauges and the chart move; `canh-bao` shows `Bình thường`.
 - Move the temperature slider below the room temperature: `canh-bao` switches to `Nhiệt độ cao: …` within a few seconds and the board LEDs blink red.
 - Module 3 (Gate 3): toggle "Đèn" → the 4 LEDs turn white; slider "Quạt" → the fan changes speed; toggle "Cửa" → the servo opens, then closes after 10 s and the toggle flips back. Each within 3 s.

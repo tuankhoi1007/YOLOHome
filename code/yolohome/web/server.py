@@ -5,10 +5,10 @@ Phuc vu trang trong thu muc web/ va API /api/*. Trinh duyet khong bao gio thay A
 moi lenh di qua may chu nay roi moi toi Adafruit (D6). Dang nhap bang mot mat khau
 chung WEB_PASSWORD trong .env (D10).
 
-WEB_DATA=mock: du lieu gia lap (web_mock.py). WEB_DATA=live: doc feed Adafruit (web_live.py).
-WEB_DATA=gateway: chay luon Module 1 + 2 trong web (web_gateway.py), mot chuong trinh cho demo.
+WEB_DATA=mock: du lieu gia lap (mock.py). WEB_DATA=live: doc feed Adafruit (live.py).
+WEB_DATA=gateway: chay luon Module 1 + 2 trong web (gateway.py trong goi nay), mot chuong trinh cho demo.
 
-Chay:  python web_server.py   roi mo http://127.0.0.1:8000 tren laptop
+Chay tu thu muc code:  python -m yolohome   roi mo http://127.0.0.1:8000 tren laptop
 """
 
 import hmac
@@ -23,10 +23,11 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
-import config
-from web_mock import CommandError, MockHome
+from yolohome import config
+from yolohome.web.mock import CommandError, MockHome
 
-WEB_ROOT = Path(__file__).resolve().parent / "web"
+# Trang tinh nam o code/web, khong nam trong goi Python nay.
+WEB_ROOT = Path(__file__).resolve().parents[2] / "web"
 HOST = "127.0.0.1"
 COOKIE = "yolo_session"
 # Mot buoi demo. Het han thi trang tu ve man dang nhap.
@@ -409,16 +410,16 @@ def main():
         sys.exit(1)
     # Nhap ban that o day de che do gia lap khong can paho-mqtt, pyserial
     if config.WEB_DATA == "gateway":
-        from web_gateway import GatewayHome
+        from yolohome.web.gateway import GatewayHome
 
         print("Du lieu: chay luon Module 1 + 2 tren cong", config.COM_PORT)
-        print("Khong chay gateway.py va ngat OhStem: ca hai can cung cong COM.")
+        print("Khong chay python -m yolohome.gateway va ngat OhStem: ca hai can cung cong COM.")
         home = GatewayHome(hub.publish)
     elif config.WEB_DATA == "live":
-        from web_live import LiveHome
+        from yolohome.web.live import LiveHome
 
         home = LiveHome(hub.publish)
-        print("Du lieu: that, doc feed Adafruit IO (can gateway.py dang chay de co so moi)")
+        print("Du lieu: that, doc feed Adafruit IO (can python -m yolohome.gateway dang chay de co so moi)")
     else:
         home = MockHome(hub.publish)
         print("Du lieu: gia lap (khong noi board, khong noi Adafruit)")

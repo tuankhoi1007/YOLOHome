@@ -13,7 +13,7 @@ import math
 import sys
 import time
 
-import config
+from yolohome import config
 
 # Khong gui lai neu so gan nhu khong doi, de tranh vuot 30 diem/phut cua Adafruit.
 MIN_GAP = 2

@@ -22,13 +22,12 @@ for _key, _value in FAKE_ENV.items():
 import unittest  # noqa: E402
 from unittest import mock  # noqa: E402
 
-import config  # noqa: E402
-import gateway  # noqa: E402
-import web_gateway  # noqa: E402
-import web_live  # noqa: E402
-from module1 import SensorPublisher  # noqa: E402
-from module2 import AlertPublisher, ThresholdPublisher  # noqa: E402
-from web_mock import CommandError  # noqa: E402
+from yolohome import config, gateway  # noqa: E402
+from yolohome.module1 import SensorPublisher  # noqa: E402
+from yolohome.module2 import AlertPublisher, ThresholdPublisher  # noqa: E402
+from yolohome.web import gateway as web_gateway  # noqa: E402
+from yolohome.web import live as web_live  # noqa: E402
+from yolohome.web.mock import CommandError  # noqa: E402
 
 
 class FakeSerial:

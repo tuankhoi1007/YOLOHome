@@ -26,10 +26,11 @@ import random  # noqa: E402
 import threading  # noqa: E402
 import unittest  # noqa: E402
 
-import module2  # noqa: E402
-import web_mock  # noqa: E402
-import web_server  # noqa: E402
-from web_mock import CommandError, MockHome  # noqa: E402
+from yolohome import module2  # noqa: E402
+from yolohome.web import live as web_live  # noqa: E402
+from yolohome.web import mock as web_mock  # noqa: E402
+from yolohome.web import server as web_server  # noqa: E402
+from yolohome.web.mock import CommandError, MockHome  # noqa: E402
 
 
 class FakeClock:
@@ -241,22 +242,10 @@ class MockHomeTest(unittest.TestCase):
             home.set_thresholds({"temp_max": 30})
         self.assertEqual(caught.exception.status, 503)
 
-    def test_face_owner_opens_door_stranger_does_not(self):
-        home, clock, events = make_home()
-        home.simulate("face_stranger")
-        self.assertFalse(events.last("face")["ok"])
-        clock.advance(2)
-        home.tick()
-        self.assertTrue(home.snapshot()["devices"]["door"]["locked"])
-        home.simulate("face_owner")
-        clock.advance(1)
-        home.tick()
-        self.assertFalse(home.snapshot()["devices"]["door"]["locked"])
-
-    def test_manual_unlock_works_after_face_rejected(self):
-        # Cua phai mo duoc tu giao dien khi nhan dien that bai (CLAUDE.md)
+    def test_manual_unlock_opens_door(self):
+        # Cua phai mo duoc tu giao dien ke ca khi chua co nhan dien (CLAUDE.md)
         home, clock, _ = make_home()
-        home.simulate("face_stranger")
+        self.assertTrue(home.snapshot()["devices"]["door"]["locked"])
         home.command("door", {"action": "unlock"})
         clock.advance(1)
         home.tick()
@@ -300,8 +289,6 @@ class LiveHomeTest(unittest.TestCase):
     """web_live.LiveHome voi connect=False: dua tin MQTT gia vao hang doi, khong mo mang."""
 
     def make_live(self):
-        import web_live
-
         clock = FakeClock()
         events = Recorder()
         home = web_live.LiveHome(events, clock=clock, connect=False)

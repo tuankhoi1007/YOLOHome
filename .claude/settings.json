@@ -42,8 +42,8 @@
       "Bash(cat *.env)",
       "Edit(/User_Requirements.md)",
       "Write(/User_Requirements.md)",
-      "Edit(/code/board_main_backup.py)",
-      "Write(/code/board_main_backup.py)"
+      "Edit(/code/board/board_main_backup.py)",
+      "Write(/code/board/board_main_backup.py)"
     ]
   },
   "hooks": {

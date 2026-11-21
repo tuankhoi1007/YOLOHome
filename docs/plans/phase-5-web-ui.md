@@ -2,6 +2,8 @@
 
 Requested 2026-10-26 by the owner: "implement the web, read all the Figma design and plan the implementation". Plan approved 2026-10-26. Effort: plan `high`; per-task levels in the Session split table.
 
+2026-11-21: `face_owner` and `face_stranger` were removed. The face card is a placeholder. Voice simulate stays. Phase 6 is a teammate's work.
+
 
 ## Context
 

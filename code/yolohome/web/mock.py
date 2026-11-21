@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 """Du lieu gia lap cho web (Module 5) khi chua noi board va Adafruit.
 
-web_server.py chi goi cac ham cong khai cua MockHome: snapshot, set_thresholds,
-command, simulate, log, tick. Ban that (web_live.py, ROADMAP 5.6) phai co dung cac
+yolohome.web.server chi goi cac ham cong khai cua MockHome: snapshot, set_thresholds,
+command, simulate, log, tick. Ban that (live.py, ROADMAP 5.6) phai co dung cac
 ham nay de trang web khong phai sua.
 
-Moi thay doi bao ra ngoai qua emit(kind, data); web_server.py day xuong trinh duyet bang SSE.
+Moi thay doi bao ra ngoai qua emit(kind, data); server.py day xuong trinh duyet bang SSE.
 Chuoi trong du lieu tra ve la chu hien tren giao dien nen co dau.
 """
 
@@ -14,9 +14,9 @@ import threading
 import time
 from datetime import datetime
 
-import config
-from module1 import Reading
-from module2 import Thresholds, evaluate
+from yolohome import config
+from yolohome.module1 import Reading
+from yolohome.module2 import Thresholds, evaluate
 
 # Board gui khoang 2 giay, gateway lay mau 3 giay (READ_INTERVAL). Gia lap cung nhip 3 giay.
 SENSOR_STEP = 3
@@ -191,7 +191,6 @@ class MockHome:
             "door": {"locked": True, "relock_at": None, "at": now},
         }
         self.pending = []
-        self.face = None
         self.voice = None
         self.voice_index = 0
         self.entries = []
@@ -209,7 +208,7 @@ class MockHome:
                 # Phan nao co du lieu. Ban that (5.6) tat nhung phan chua co hop dong trong PROTOCOL.md.
                 "features": {
                     "devices": True,
-                    "face": True,
+                    "face": False,
                     "voice": True,
                     "simulate": True,
                     "log": True,
@@ -225,7 +224,7 @@ class MockHome:
                     "fan": self._device_view("fan", now),
                     "door": self._device_view("door", now),
                 },
-                "face": self.face,
+                "face": None,
                 "voice": self.voice,
                 "colors": [{"hex": hex_code, "name": name} for hex_code, name in LIGHT_COLORS],
                 "voice_commands": [text for text, device, on in VOICE_COMMANDS],
@@ -279,10 +278,6 @@ class MockHome:
                 self._set_online(False, now)
             elif kind == "online":
                 self._set_online(True, now)
-            elif kind == "face_owner":
-                self._face(now, True)
-            elif kind == "face_stranger":
-                self._face(now, False)
             elif kind == "voice":
                 self._voice(now)
             else:
@@ -396,19 +391,6 @@ class MockHome:
         else:
             self._add_log(now, "system", "IoT Gateway", "Mất kết nối Adafruit IO / Gateway (mô phỏng)", "Mất kết nối", "danger")
         self.emit("gateway", self._gateway_view())
-
-    def _face(self, now, ok):
-        if ok:
-            self.face = {"ok": True, "name": "Chủ nhà", "confidence": 98.4, "at": now}
-            if self.online:
-                self._add_log(now, "face", "Camera laptop (Gateway)", "Nhận diện Chủ nhà (98.4%) — mở khóa cửa", "Thành công", "ok")
-                self._queue("door", {"locked": False}, "FaceAI")
-            else:
-                self._add_log(now, "face", "Camera laptop (Gateway)", "Nhận diện Chủ nhà nhưng không gửi được lệnh mở cửa", "Lỗi", "danger")
-        else:
-            self.face = {"ok": False, "name": None, "confidence": 41.2, "at": now}
-            self._add_log(now, "face", "Camera laptop (Gateway)", "Khuôn mặt không xác định — từ chối mở khóa", "Từ chối", "danger")
-        self.emit("face", self.face)
 
     def _voice(self, now):
         text, device, on = VOICE_COMMANDS[self.voice_index % len(VOICE_COMMANDS)]

@@ -47,7 +47,7 @@ Budget: steady readings ≈ 3 feeds × 4/min = **12 points/min**. Worst case, if
 
 The web (`/api/thresholds`, `module2.ThresholdPublisher`) publishes only the `nguong-*` feeds whose value changed: at most **3 points per save**, by hand, and at most one write per feed every 2 s. It never creates a missing feed. The gateway reads the new value from its subscription as before; with `WEB_DATA=gateway` the value is also handed to the running gateway directly so the next comparison uses it.
 
-`WEB_DATA=gateway` runs the gateway loop inside `web_server.py`: same publishes and pacing as `gateway.py`, one MQTT connection. `WEB_DATA=live` adds a second, subscribe-only connection next to `gateway.py`. Sensor history for the web log is read over REST (`/feeds/<key>/data`) and costs no data points.
+`WEB_DATA=gateway` runs the gateway loop inside `python -m yolohome` (`yolohome/web/server.py`): same publishes and pacing as `python -m yolohome.gateway`, one MQTT connection. `WEB_DATA=live` adds a second, subscribe-only connection next to that gateway. Sensor history for the web log is read over REST (`/feeds/<key>/data`) and costs no data points.
 
 ## v0.2.0 — Module 3 device control (approved 2026-11-20, Gate 2)
 

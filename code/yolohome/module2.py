@@ -11,8 +11,8 @@ Dashboard co the ghi de bang feed nguong-nhiet, nguong-am, nguong-sang.
 
 import time
 
-import config
-from module1 import Reading, normalize_light
+from yolohome import config
+from yolohome.module1 import Reading, normalize_light
 
 
 class Alert:

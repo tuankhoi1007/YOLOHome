@@ -10,7 +10,8 @@ from datetime import datetime
 from pathlib import Path
 from urllib.parse import quote
 
-ROOT = Path(__file__).resolve().parent
+# Thu muc code/: .env nam o day, khong nam canh file nay.
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def load_env(path):
@@ -58,36 +59,6 @@ def env_float(name, default):
         return default
 
 
-def env_int(name, default):
-    raw = os.getenv(name, "").strip()
-    if not raw:
-        return default
-    try:
-        return int(raw)
-    except ValueError:
-        print(name, "khong phai so nguyen, dung", default)
-        return default
-
-
-def env_bool(name, default=False):
-    raw = os.getenv(name, "").strip().lower()
-    if not raw:
-        return default
-    return raw in ("1", "true", "yes", "on")
-
-
-def env_optional_float(name):
-    """None neu khong khai bao, de model tu dung nguong da chon luc train."""
-    raw = os.getenv(name, "").strip()
-    if not raw:
-        return None
-    try:
-        return float(raw)
-    except ValueError:
-        print(name, "khong phai so, bo qua")
-        return None
-
-
 def fmt_num(value):
     value = round(float(value), 1)
     if value == int(value):
@@ -126,29 +97,6 @@ WEB_PASSWORD = env("WEB_PASSWORD", "")
 WEB_DATA = env("WEB_DATA", "mock")
 # Do tre gia lap tu luc gui lenh den luc thiet bi xac nhan. Lon hon 3000 thi web bao qua thoi gian cho.
 MOCK_ACK_MS = env_float("MOCK_ACK_MS", 900)
-
-# Cua servo. P4 la chan servo trong tai lieu OhStem, khong phai P0/P14.
-# Fan o P1, servo o P4 (D4 da chot tren nhanh Module 3).
-SERVO_PIN = env("SERVO_PIN", "P4")
-# Mo 10 giay roi tu dong, trung voi web gia lap.
-DOOR_OPEN_SECONDS = env_float("DOOR_OPEN_SECONDS", 10)
-
-# Nhan dien khuon mat. Mac dinh tat de gateway cu van chay khi chua co model va webcam.
-FACE_ENABLE = env_bool("FACE_ENABLE", False)
-FACE_CAMERA = env_int("FACE_CAMERA", 0)
-FACE_THRESHOLD = env_optional_float("FACE_THRESHOLD")
-# 3 khung on dinh (~1 giay) moi tinh la mot lan nhan, tranh mo cua vi mot khung nhieu.
-FACE_STABLE_FRAMES = env_int("FACE_STABLE_FRAMES", 3)
-FACE_MISS_RESET = env_float("FACE_MISS_RESET", 1.0)
-FACE_INTERVAL = env_float("FACE_INTERVAL", 0.3)
-FACE_MODEL_DIR = ROOT / "models" / "face"
-FACE_DATASET_DIR = ROOT / "data" / "faces"
-# File local de web che do live thay trang thai khi gateway.py chay rieng. Khong phai feed Adafruit.
-RUNTIME_DIR = ROOT / "data" / "runtime"
-FACE_STATUS_PATH = RUNTIME_DIR / "status.json"
-FACE_LOG_PATH = RUNTIME_DIR / "face_log.jsonl"
-DOOR_CMD_PATH = RUNTIME_DIR / "door_cmd.json"
-FACE_BRIDGE = env_bool("FACE_BRIDGE", True)
 
 SENSOR_FEEDS = (FEED_TEMP, FEED_HUMID, FEED_LIGHT)
 THRESHOLD_FEEDS = (FEED_TEMP_MAX, FEED_HUMID_MAX, FEED_LIGHT_MIN)

@@ -5,18 +5,17 @@ Module 1 doc USB roi gui nhiet do, do am, anh sang len Adafruit.
 Module 2 so nguong, gui feed canh-bao, va gui LED:RED / LED:GREEN xuong board.
 Module 3 nhan lenh den / quat / cua tu feed (hoac tu web), gui xuong board, cho ack.
 
-Username va Active Key nam trong file .env, cung thu muc voi file nay.
+Username va Active Key nam trong code/.env.
 
-Vong lap nam trong class Gateway de web_server.py (WEB_DATA=gateway) chay lai dung
-vong nay trong mot luong rieng. Chay file nay truc tiep thi y nhu truoc.
+Vong lap nam trong class Gateway de yolohome.web.server (WEB_DATA=gateway) chay lai dung
+vong nay trong mot luong rieng. Chay: python -m yolohome.gateway
 """
 
 import queue
 import time
 
-import config
-from runtime_store import append_jsonl, write_json
-from module1 import (
+from yolohome import config
+from yolohome.module1 import (
     DEVICE_BY_FEED,
     DeviceControl,
     Reading,
@@ -27,7 +26,7 @@ from module1 import (
     send_led,
     send_line,
 )
-from module2 import AlertPublisher, Thresholds, evaluate
+from yolohome.module2 import AlertPublisher, Thresholds, evaluate
 
 
 class Gateway:
@@ -57,13 +56,6 @@ class Gateway:
         self.last_seen = time.time()
         self.told_json = False
         self.next_sample = 0.0
-        self._face_queue = queue.Queue()
-        self.face_loop = None
-        self.face_runtime = _face_off()
-        self.last_face = None
-        self.status_path = config.FACE_STATUS_PATH
-        self.log_path = config.FACE_LOG_PATH
-        self._status_seq = 0
 
     def _tell(self, name, *args):
         if self.listener is None:
@@ -126,7 +118,6 @@ class Gateway:
         self.sensors = SensorPublisher(self.client)
         self.alerts = AlertPublisher(self.client)
         self.devices.start()
-        self._start_face()
         print("Moi lan doc cach nhau", config.fmt_num(config.READ_INTERVAL), "giay")
 
     def set_threshold(self, feed, value):
@@ -137,10 +128,6 @@ class Gateway:
     def command(self, device, value, source):
         """Gui lenh tu luong khac (web). value da qua module1.NORMALIZERS."""
         self.commands.put((device, value, source))
-
-    def submit_face(self, kind, payload):
-        """Webcam chay o luong khac. Chi bo ket qua vao hang doi."""
-        self._face_queue.put((kind, payload))
 
     def apply_alert(self):
         alert = evaluate(self.reading, self.limits)
@@ -204,28 +191,9 @@ class Gateway:
         time.sleep(0.05)
         return True
 
-    def drain_face(self):
-        while True:
-            try:
-                kind, payload = self._face_queue.get_nowait()
-            except queue.Empty:
-                break
-            if kind == "status":
-                self.face_runtime = payload
-                self._tell("on_face_status", payload)
-                self._write_status()
-            elif kind == "attempt":
-                self._log_attempt(payload)
-                self._tell("on_face", payload)
-                if payload.get("ok"):
-                    self.command("cua", "OPEN", "FaceAI")
-                self.last_face = payload
-                self._write_status()
-
     def step(self):
         """Mot vong: nhan nguong va lenh moi, doc mot dong USB, so nguong, gui feed va lenh den."""
         self.drain_incoming()
-        self.drain_face()
         self.devices.expire()
         if self.wait_for_sample():
             return
@@ -261,100 +229,11 @@ class Gateway:
             self.step()
 
     def close(self):
-        if self.face_loop is not None:
-            self.face_loop.stop()
         if self.ser is not None:
             self.ser.close()
         if self.client is not None:
             self.client.loop_stop()
             self.client.disconnect()
-
-    def _log_attempt(self, result):
-        if result.get("ok"):
-            print(
-                "Nhan dien:",
-                result.get("name"),
-                "diem",
-                result.get("score"),
-                "nguong",
-                result.get("threshold"),
-                "chap nhan",
-            )
-        else:
-            print(
-                "Nhan dien: tu choi, gan nhat",
-                result.get("name"),
-                "diem",
-                result.get("score"),
-                "nguong",
-                result.get("threshold"),
-            )
-        append_jsonl(self.log_path, {
-            "at": result.get("at"),
-            "name": result.get("name"),
-            "ok": bool(result.get("ok")),
-            "result": "accepted" if result.get("ok") else "rejected",
-            "confidence": result.get("confidence"),
-            "score": result.get("score"),
-            "threshold": result.get("threshold"),
-            "metric": result.get("metric"),
-            "model": result.get("model"),
-        })
-
-    def _write_status(self):
-        payload = {
-            "seq": self._status_seq,
-            "at": time.time(),
-            "face": self.last_face,
-            "face_runtime": self.face_runtime,
-            "door": self.devices.confirmed.get("cua"),
-            "door_relock": config.DOOR_OPEN_SECONDS,
-        }
-        self._status_seq += 1
-        write_json(self.status_path, payload)
-
-    def _start_face(self):
-        if not config.FACE_ENABLE:
-            print("Nhan dien: tat (FACE_ENABLE=0). Cua van mo duoc bang nut tren web.")
-            self.face_runtime = _face_off()
-            self._tell("on_face_status", self.face_runtime)
-            self._write_status()
-            return
-        try:
-            import face_runtime
-
-            recognizer = face_runtime.load_recognizer(config.FACE_MODEL_DIR, config.FACE_THRESHOLD)
-        except Exception as exc:
-            print("Nhan dien: khong bat duoc -", exc)
-            self.face_runtime = _face_off()
-            self.face_runtime["enabled"] = True
-            self.face_runtime["message"] = "Chưa tải được model. Chụp ảnh rồi chạy face_train.py. Cửa vẫn mở bằng nút."
-            self._tell("on_face_status", self.face_runtime)
-            self._write_status()
-            return
-        self.face_runtime = recognizer.runtime_status()
-        self.face_runtime["camera"] = "starting"
-        self.face_runtime["message"] = "Đang mở webcam."
-        self._tell("on_face_status", self.face_runtime)
-        self.face_loop = face_runtime.FaceLoop(
-            recognizer,
-            self.submit_face,
-            camera_index=config.FACE_CAMERA,
-            interval=config.FACE_INTERVAL,
-            stable_frames=config.FACE_STABLE_FRAMES,
-            miss_reset=config.FACE_MISS_RESET,
-        )
-        self.face_loop.start()
-        self._write_status()
-
-
-def _face_off():
-    return {
-        "enabled": False,
-        "ready": False,
-        "camera": "off",
-        "message": "Nhận diện đang tắt (FACE_ENABLE=0). Cửa vẫn mở được bằng nút Khóa cửa.",
-    }
 
 
 def main():

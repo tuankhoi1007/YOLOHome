@@ -17,11 +17,11 @@ Hợp đồng: `docs/PROTOCOL.md` v0.2.1. Ngày chạy: ____ · Người chạy:
 - [ ] `.env` có `FEED_DEN=den`, `FEED_QUAT=quat`, `FEED_CUA=cua` (xem `.env.example`).
 - [ ] Adafruit → Feeds: có đủ `nhiet-do`, `do-am`, `anh-sang`, `canh-bao`, `nguong-nhiet`, `nguong-am`, `nguong-sang`, `den`, `quat`, `cua` = **10/10**. Feed cũ `temperature`, `humidity`, `light` đã xóa.
 - [ ] Cắm dây: DHT20 → I2C, cảm biến ánh sáng → **P0**, 4 LED RGB → **P14**, quạt (PWM) → **P1**, servo cửa → **P4**. Không cắm gì khác vào P0/P14.
-- [ ] Nạp `yolobit.py` bản mới bằng OhStem (chế độ Python), bấm **Chạy**, thấy dòng `T:..,H:..,L:..` mỗi ~2 s, bấm **Lưu project vào thiết bị**, rồi **ngắt OhStem**.
+- [ ] Nạp `board/yolobit.py` bản mới bằng OhStem (chế độ Python), bấm **Chạy**, thấy dòng `T:..,H:..,L:..` mỗi ~2 s, bấm **Lưu project vào thiết bị**, rồi **ngắt OhStem**.
 
 ## 1. Gate 1 — Module 1–2 (theo `HUONG_DAN.md` mục 4)
 
-Chạy `.\.venv\Scripts\python.exe gateway.py`.
+Chạy `.\.venv\Scripts\python.exe -m yolohome.gateway`.
 
 | # | Kiểm tra | Đạt? | Ghi chú |
 | --- | --- | --- | --- |
@@ -39,7 +39,7 @@ Dừng bằng `Ctrl+C`. Lưu ý: ở 1.3 nếu LED sáng **xanh lá** thì board
 
 ## 2. Gate 3 — Module 3, từ dashboard Adafruit
 
-Chạy `gateway.py` như trên. Khi khởi động, gateway gửi `den=OFF`, `quat=0`, `cua=CLOSE` (3 điểm). Dùng các block Module 3 trong `docs/ADAFRUIT_DASHBOARD.md` (hàng 4). Các màu preset khác `#ffffff` thì gửi bằng **Add Data** trực tiếp vào feed `den`.
+Chạy `python -m yolohome.gateway` như trên. Khi khởi động, gateway gửi `den=OFF`, `quat=0`, `cua=CLOSE` (3 điểm). Dùng các block Module 3 trong `docs/ADAFRUIT_DASHBOARD.md` (hàng 4). Các màu preset khác `#ffffff` thì gửi bằng **Add Data** trực tiếp vào feed `den`.
 
 Đo thời gian từ lúc bấm đến lúc thiết bị phản ứng (đồng hồ bấm giờ điện thoại là đủ).
 
@@ -59,7 +59,7 @@ Chạy `gateway.py` như trên. Khi khởi động, gateway gửi `den=OFF`, `qu
 
 ## 3. Gate 3 — từ web (`WEB_DATA=gateway`)
 
-Tắt `gateway.py` trước (chỉ một chương trình được giữ cổng COM). Đặt `WEB_DATA=gateway` trong `.env`, chạy `web_server.py`, mở `http://127.0.0.1:8000` bằng trình duyệt trên laptop, đăng nhập.
+Tắt `python -m yolohome.gateway` trước (chỉ một chương trình được giữ cổng COM). Đặt `WEB_DATA=gateway` trong `.env`, chạy `python -m yolohome`, mở `http://127.0.0.1:8000` bằng trình duyệt trên laptop, đăng nhập.
 
 | # | Thao tác | Mong đợi | Đạt? |
 | --- | --- | --- | --- |
@@ -73,7 +73,7 @@ Tắt `gateway.py` trước (chỉ một chương trình được giữ cổng C
 
 ## 4. Hiệu chỉnh trên kit (ghi số thật lại)
 
-Các hằng số ở đầu phần Module 3 trong `yolobit.py`. Sửa trên OhStem, chạy lại, rồi báo số để agent cập nhật file trong repo.
+Các hằng số ở đầu phần Module 3 trong `board/yolobit.py`. Sửa trên OhStem, chạy lại, rồi báo số để agent cập nhật file trong repo.
 
 | Hằng số | Hiện tại | Kiểm tra | Số chốt |
 | --- | --- | --- | --- |

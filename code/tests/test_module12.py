@@ -23,10 +23,9 @@ import contextlib  # noqa: E402
 import io  # noqa: E402
 import unittest  # noqa: E402
 
-import config  # noqa: E402
-import module1  # noqa: E402
-from module1 import Reading, normalize_light, parse_line  # noqa: E402
-from module2 import Thresholds, evaluate  # noqa: E402
+from yolohome import config, module1  # noqa: E402
+from yolohome.module1 import Reading, normalize_light, parse_line  # noqa: E402
+from yolohome.module2 import Thresholds, evaluate  # noqa: E402
 
 
 def quiet(func, *args):

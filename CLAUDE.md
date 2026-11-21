@@ -35,8 +35,8 @@ How Claude Code works on YOLOHome. The full way of working is in `docs/AGENT_WOR
 ## Hard limits
 
 - Never read, print or edit any `.env`. Key names are in `code/.env.example`.
-- Never run `code/yolobit.py` on the laptop. It is MicroPython for the board.
-- Do not edit `code/board_main_backup.py` (old prototype, reference only).
+- Never run `code/board/yolobit.py` on the laptop. It is MicroPython for the board.
+- Do not edit `code/board/board_main_backup.py` (old prototype, reference only).
 - Pins: P0 = light sensor, P14 = 4 RGB LEDs. Nothing else goes on them.
 - Adafruit free tier: max 10 feeds, about 30 data points per minute in total. A plan that adds a feed or changes publish timing states the new feed count and points per minute.
 - No LLM for voice, no native app, no AI on the board, no pump, soil or ultrasonic sensors.

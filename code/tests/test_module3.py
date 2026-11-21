@@ -6,9 +6,8 @@ from tests.test_gateway import FakeClock, Recorder, make_gateway  # dat bien moi
 
 import unittest  # noqa: E402
 
-import config  # noqa: E402
-import web_gateway  # noqa: E402
-from module1 import (  # noqa: E402
+from yolohome import config  # noqa: E402
+from yolohome.module1 import (  # noqa: E402
     DeviceControl,
     device_line,
     normalize_cua,
@@ -16,7 +15,8 @@ from module1 import (  # noqa: E402
     normalize_quat,
     parse_ack,
 )
-from web_mock import CommandError  # noqa: E402
+from yolohome.web import gateway as web_gateway  # noqa: E402
+from yolohome.web.mock import CommandError  # noqa: E402
 
 
 class NormalizeTest(unittest.TestCase):

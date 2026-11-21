@@ -1,25 +1,25 @@
 # -*- coding: utf-8 -*-
 """Web chay luon Module 1 + 2 (WEB_DATA=gateway): mot chuong trinh cho buoi demo.
 
-web_server.py tao GatewayHome. GatewayHome chay gateway.Gateway (dung vong cua gateway.py:
-doc USB, gui feed, so nguong, gui LED:RED / LED:GREEN) trong mot luong rieng, va nhan
+yolohome.web.server tao GatewayHome. GatewayHome chay yolohome.gateway.Gateway
+(doc USB, gui feed, so nguong, gui LED:RED / LED:GREEN) trong mot luong rieng, va nhan
 moi so doc duoc qua listener de day thang len web, khong phai doi Adafruit gui lai.
 
-Moi xu ly so lieu, canh bao, nhat ky ke thua tu web_live.LiveHome. O day chi doi
+Moi xu ly so lieu, canh bao, nhat ky ke thua tu yolohome.web.live.LiveHome. O day chi doi
 nguon du lieu: thay vi nghe MQTT, nghe luong gateway.
 
-Khong chay cung luc voi gateway.py hay OhStem: ca ba deu can cung mot cong COM.
+Khong chay cung luc voi python -m yolohome.gateway hay OhStem: ca ba deu can cung mot cong COM.
 """
 
 import threading
 import time
 
-import config
-from gateway import Gateway
-from module1 import MIN_COMMAND_GAP, NORMALIZERS
-from module2 import ThresholdPublisher
-from web_live import LiveHome
-from web_mock import DEVICE_NAMES, DOOR_RELOCK, LIGHT_COLORS, CommandError, parse_command
+from yolohome import config
+from yolohome.gateway import Gateway
+from yolohome.module1 import MIN_COMMAND_GAP, NORMALIZERS
+from yolohome.module2 import ThresholdPublisher
+from yolohome.web.live import LiveHome
+from yolohome.web.mock import DEVICE_NAMES, DOOR_RELOCK, LIGHT_COLORS, CommandError, parse_command
 
 # Ten thiet bi tren web <-> feed/thiet bi cua gateway (docs/PROTOCOL.md v0.2.0)
 WEB_TO_GATEWAY = {"light": "den", "fan": "quat", "door": "cua"}
@@ -42,8 +42,6 @@ class GatewayHome(LiveHome):
             "door": {"locked": True, "relock_at": None, "at": now},
         }
         self.last_sent = {}
-        self.face = None
-        self.face_runtime = None
         self.stop = threading.Event()
         self.thread = None
         LiveHome.__init__(self, emit, clock=clock, connect=connect)
@@ -132,11 +130,8 @@ class GatewayHome(LiveHome):
             now = self.clock()
             view["features"]["devices"] = True
             view["features"]["door"] = True
-            view["features"]["face"] = True
             view["devices"] = {name: self._device_view(name, now) for name in self.devices}
             view["colors"] = [{"hex": code, "name": name} for code, name in LIGHT_COLORS]
-            view["face"] = self.face
-            view["face_runtime"] = self.face_runtime
         return view
 
     def command(self, device, body, source="Giao diện web"):
@@ -185,29 +180,6 @@ class GatewayHome(LiveHome):
     def on_device(self, device, value, ok, source, reason):
         # Goi tu luong gateway: chi bo vao hang doi
         self.incoming.put(("device", (device, value, ok, source, reason)))
-
-    def on_face(self, result):
-        self.incoming.put(("face", result))
-
-    def on_face_status(self, status):
-        self.incoming.put(("face_status", status))
-
-    def _take_face(self, now, result):
-        self.face = result
-        self.emit("face", result)
-        if result.get("ok"):
-            detail = "Nhận diện " + str(result.get("name") or "thành viên") + " — mở cửa"
-            tone = "ok"
-            status = "Thành công"
-        else:
-            detail = "Khuôn mặt không khớp — cửa giữ đóng"
-            tone = "danger"
-            status = "Từ chối"
-        self._add_log(now, "face", "Camera laptop (Gateway)", detail, status, tone)
-
-    def _take_face_status(self, status):
-        self.face_runtime = status
-        self.emit("face_status", status)
 
     def _take_device(self, now, device, value, ok, source, reason):
         name = GATEWAY_TO_WEB[device]
