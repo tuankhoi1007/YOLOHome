@@ -248,6 +248,34 @@ Gateway không gửi lại khi số gần như không đổi: nhiệt phải l�
 
 ---
 
+### 4.5 Nhận diện khuôn mặt (Phase 6)
+
+AI chạy trên laptop, dùng webcam của laptop: YuNet (phát hiện mặt) + SFace (vector 128 số), hai mô hình ONNX đã huấn luyện sẵn của OpenCV. Lần chạy đầu tự tải vào `code/models/` (khoảng 37 MB). Ảnh và vector khuôn mặt nằm trong `code/data/faces/`. Hai thư mục này đã có trong `.gitignore`, không đẩy lên GitHub. Không tốn feed Adafruit nào.
+
+Đứng trong thư mục `code`:
+
+```powershell
+# 1. Đăng ký từng thành viên (tên không dấu): 25 ảnh qua 4 bước tư thế
+.\.venv\Scripts\python.exe -m yolohome.face.enroll Minh
+.\.venv\Scripts\python.exe -m yolohome.face.enroll --list
+
+# 2. Thử quét, không cần board
+.\.venv\Scripts\python.exe -m yolohome.face.unlock
+
+# 3. Buổi khác, ánh sáng phòng demo: ảnh test thành viên và người lạ (tên chưa đăng ký = người lạ)
+.\.venv\Scripts\python.exe -m yolohome.face.enroll Minh --test
+.\.venv\Scripts\python.exe -m yolohome.face.enroll la1 --test
+
+# 4. Đánh giá + chọn ngưỡng: data/faces/eval_report.md, eval_plot.png, threshold.json
+.\.venv\Scripts\python.exe -m yolohome.face.evaluate
+```
+
+Đăng ký theo tư thế: nhìn thẳng → quay một bên → quay bên kia → lùi xa. Chương trình đo góc quay đầu từ 5 điểm mốc; sai tư thế thì không chụp và không sang bước. Thiếu bước nhìn thẳng hoặc dưới 10 ảnh thì không lưu.
+
+Mở cửa: mỗi thành viên có một mẫu trung bình; trong 7 khung liên tiếp phải có 5 khung khớp **cùng một** thành viên với điểm ≥ ngưỡng. Ngưỡng lấy từ `threshold.json` do bước 4 chọn (cao hơn mọi người lạ trong nửa dữ liệu hiệu chỉnh, không thấp hơn 0,363); chưa chạy bước 4 thì dùng 0,5. `FACE_LIVENESS=1` thêm thử thách quay đầu chống ảnh in (mặc định tắt). Biểu đồ ở bước 4 cần `pip install matplotlib`, không có thì bỏ qua biểu đồ.
+
+Trong gateway: `Gateway.start()` mở phần này; đúng thành viên thì gửi `DOOR:OPEN` qua Module 3 như lệnh từ web, nguồn `Khuôn mặt`, board tự đóng sau 10 s. Chạy `python -m yolohome.gateway` thì gõ `f` rồi Enter để quét. Nút quét trên web chưa có: web gọi `Gateway.scan_face(source)` và nhận kết quả qua listener `on_face(result)` (Module 5 nối sau). Thiếu OpenCV, thiếu mô hình hay `FACE_ENABLE=0` thì gateway chỉ tắt phần này, nút cửa trên web vẫn dùng được.
+
 ## 5. Dùng web
 
 | Trang | Nội dung |
@@ -342,6 +370,7 @@ flowchart LR
 | `python -m yolohome` | Laptop. Web + (khi `WEB_DATA=gateway`) Module 1–3. **Lệnh chính khi demo.** File: `yolohome/web/server.py`. |
 | `python -m yolohome.gateway` | Laptop. Module 1 + 2 + 3 không có web. Web dùng lại đúng vòng này. |
 | `python -m yolohome.module1`, `module2` | Laptop. Chạy riêng từng module để thử. |
+| `python -m yolohome.face.enroll`, `.unlock`, `.evaluate` | Laptop. Đăng ký mặt, thử quét, đánh giá (4.5). Code ở `yolohome/face/`. |
 | `yolohome/config.py` | Không chạy riêng. Đọc `code/.env`, nối Adafruit. |
 | `yolohome/web/mock.py`, `live.py`, `gateway.py` | Không chạy riêng. Nguồn dữ liệu cho web theo `WEB_DATA`. |
 | `web/` | HTML, CSS, JS của web. Không cần build. |
@@ -374,7 +403,7 @@ Phải in `OK`. Chạy trước khi đẩy code lên nhánh chung.
 | Module 3 — điều khiển đèn, quạt, cửa | Đã viết (gateway, board, web ở `gateway`, test tự động). **Chưa chạy trên board**: chờ Gate 3 và hiệu chỉnh góc servo, tốc độ quạt (`code/KIEM_TRA_GATE_1_3.md`) |
 | Module 4 — nhật ký | Một phần: lịch sử cảm biến từ Adafruit; nhật ký điều khiển/khuôn mặt chờ D5 |
 | Module 5 — giao diện | Web đủ màn hình theo Figma; dashboard Adafruit dựng theo `docs/ADAFRUIT_DASHBOARD.md` |
-| Nhận diện khuôn mặt | Bạn trong nhóm làm (Phase 6). Nhánh này không có model. Cửa luôn mở được bằng nút trên web |
+| Nhận diện khuôn mặt | Đã viết (`yolohome/face`, mục 4.5, test tự động). Chưa có nút quét trên web; chưa có số đánh giá trên dữ liệu thật của nhóm (Gate 6). Cửa luôn mở được bằng nút trên web |
 | Giọng nói tiếng Việt | Chưa có (Phase 7). Lệnh cố định, không dùng LLM |
 | LCD 16x2 | Chỉ có trong bản thử `board/board_main_backup.py` |
 

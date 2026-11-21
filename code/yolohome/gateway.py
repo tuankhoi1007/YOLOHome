@@ -4,6 +4,8 @@
 Module 1 doc USB roi gui nhiet do, do am, anh sang len Adafruit.
 Module 2 so nguong, gui feed canh-bao, va gui LED:RED / LED:GREEN xuong board.
 Module 3 nhan lenh den / quat / cua tu feed (hoac tu web), gui xuong board, cho ack.
+Nhan dien khuon mat (Phase 6, yolohome/face): scan_face() bat dau quet; dung thanh vien thi
+gateway gui lenh cua OPEN qua Module 3, board tu dong cua sau 10 s. Chay rieng: go f + Enter.
 
 Username va Active Key nam trong code/.env.
 
@@ -12,6 +14,7 @@ vong nay trong mot luong rieng. Chay: python -m yolohome.gateway
 """
 
 import queue
+import threading
 import time
 
 from yolohome import config
@@ -34,7 +37,8 @@ class Gateway:
 
     listener (tuy chon) duoc bao moi khi co so moi, de web hien thi:
     on_mqtt(ok), on_reading(reading), on_alert(alert), on_thresholds(limits),
-    on_device(device, value, ok, source, reason).
+    on_device(device, value, ok, source, reason), on_face(result).
+    on_face nhan dict {"ok", "name", "score", "detail"} (detail co dau, de hien tren web / nhat ky).
     Cac ham nay chay trong luong cua gateway; chung chi nen bo viec vao hang doi.
     """
 
@@ -56,6 +60,8 @@ class Gateway:
         self.last_seen = time.time()
         self.told_json = False
         self.next_sample = 0.0
+        # Nhan dien khuon mat: None khi tat hoac thieu opencv / mo hinh
+        self.face = None
 
     def _tell(self, name, *args):
         if self.listener is None:
@@ -118,7 +124,51 @@ class Gateway:
         self.sensors = SensorPublisher(self.client)
         self.alerts = AlertPublisher(self.client)
         self.devices.start()
+        self.enable_face()
         print("Moi lan doc cach nhau", config.fmt_num(config.READ_INTERVAL), "giay")
+
+    def enable_face(self, face=None):
+        """Mo phan nhan dien khuon mat. Loi thi chi tat phan nay; nut cua tren web van dung duoc."""
+        if face is not None:
+            self.face = face
+            return True
+        if not config.FACE_ENABLE:
+            print("Nhan dien khuon mat: tat (FACE_ENABLE=0)")
+            return False
+        try:
+            from yolohome.face.unlock import FaceUnlock
+
+            self.face = FaceUnlock()
+        except Exception as exc:
+            print("Nhan dien khuon mat: tat -", exc)
+            return False
+        print("Nhan dien khuon mat: san sang")
+        return True
+
+    def scan_face(self, source):
+        """Bat dau mot lan quet mat. Goi duoc tu luong khac (web). Tra ve 'off', 'busy' hoac 'started'."""
+        if self.face is None:
+            return "off"
+        if not self.face.request_scan():
+            return "busy"
+        print("Bat dau quet mat (" + source + ")")
+        return "started"
+
+    def drain_face(self):
+        """Ket qua quet mat. Dung thanh vien thi mo cua qua Module 3, nhu lenh tu web."""
+        if self.face is None:
+            return
+        while True:
+            try:
+                result = self.face.results.get_nowait()
+            except queue.Empty:
+                return
+            if result.ok:
+                print("Mat dung:", result.name, "- diem %.2f," % result.score, result.note, "-> mo cua")
+                self.devices.request("cua", "OPEN", "Khuôn mặt")
+            else:
+                print("Khong mo cua:", result.note)
+            self._tell("on_face", result.as_dict())
 
     def set_threshold(self, feed, value):
         """Doi nguong tu luong khac (web). Di cung duong voi tin MQTT tu feed nguong-*."""
@@ -194,6 +244,7 @@ class Gateway:
     def step(self):
         """Mot vong: nhan nguong va lenh moi, doc mot dong USB, so nguong, gui feed va lenh den."""
         self.drain_incoming()
+        self.drain_face()
         self.devices.expire()
         if self.wait_for_sample():
             return
@@ -236,9 +287,24 @@ class Gateway:
             self.client.disconnect()
 
 
+def _keyboard(gateway):
+    """Chay rieng gateway: go f roi Enter de quet mat (chua co nut tren web)."""
+    while True:
+        try:
+            text = input()
+        except (EOFError, OSError):
+            return
+        if text.strip().lower() == "f":
+            if gateway.scan_face("ban phim") == "off":
+                print("Nhan dien khuon mat dang tat")
+
+
 def main():
     gateway = Gateway()
     gateway.start()
+    if gateway.face is not None:
+        print("Go f roi Enter de quet mat mo cua")
+        threading.Thread(target=_keyboard, args=(gateway,), daemon=True).start()
     try:
         gateway.run()
     except KeyboardInterrupt:

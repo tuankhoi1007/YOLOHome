@@ -42,8 +42,16 @@ How gateway and board code is written. Copy the patterns already here; add a rul
 ## Door (Module 3)
 
 - The board only sees `LIGHT:`, `FAN:` and `DOOR:OPEN` / `DOOR:CLOSE`, then answers `ACK:`. Fan is P1 and the servo is P4. Angles stay in `yolobit.py`. The board closes the door itself after 10 s and sends `ACK:DOOR:CLOSE`.
-- The manual door button on the web uses `Gateway.command("cua", ...)`. It must stay usable when face recognition is missing or fails. This branch does not contain the recognizer; a teammate owns Phase 6.
-- The dashboard face card is a placeholder. Do not add a camera, a training script, simulate-face buttons or an OpenCV dependency on this branch.
+- The manual door button on the web uses `Gateway.command("cua", ...)`. It must stay usable when face recognition is missing or fails.
+- The dashboard face card is still a placeholder. Wiring it (scan button, result) is Module 5 work; see "Face (Phase 6)".
+
+## Face (Phase 6)
+
+- Code is `yolohome/face/`: `engine.py` (models, `FaceEngine`, `Gallery`, threshold), `enroll.py`, `unlock.py` (`Decider`, `scan`, `FaceUnlock`), `evaluate.py`. Settings are `config.FACE_*`; data in `code/data/faces/`, models in `code/models/` (both git-ignored). Plan: `docs/plans/phase-6-face-recognition.md`.
+- `opencv-python` and `numpy` are imported inside `yolohome.face` only, and a missing library or model only turns face off (`Gateway.face is None`). Never import them from `gateway.py`, `module*.py` or `web/` at module level.
+- The recognizer never touches serial. `FaceUnlock` runs the camera in its own thread and puts `ScanResult` on a queue; `Gateway.drain_face()` (called in `step()`) opens the door with `self.devices.request("cua", "OPEN", "Khuôn mặt")` and reports `on_face(result.as_dict())`. The board closes the door after 10 s, so the face code has no auto-close.
+- Other threads start a scan with `Gateway.scan_face(source)` (`off` / `busy` / `started`). `ScanResult.detail` is UI text with accents; `note` is the accent-free text for `print`.
+- Tests: `tests/test_face.py` uses fake vectors and a `FakeFace`; no camera, no model download. Tests that need numpy skip when it is missing.
 
 ## Style
 
