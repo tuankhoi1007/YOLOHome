@@ -1,0 +1,206 @@
+/* Trang dang nhap, Figma 5:4 (1440x900): cot trai 580px la the dang nhap, ben phai la anh. */
+.login-page {
+  display: grid;
+  grid-template-columns: 580px 1fr;
+  min-height: 100vh;
+}
+
+/* ---------- cot trai (5:20) ---------- */
+.login-panel {
+  display: flex;
+  align-items: center;
+  padding: 80px 0;
+}
+
+.login-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 32px;
+  width: 100%;
+  min-height: 560px;
+  padding: var(--space-l);
+  background: var(--white);
+  border: var(--stroke) solid var(--line);
+  border-radius: var(--radius-l);
+  filter: drop-shadow(0 16px 20px rgba(0, 0, 0, 0.03));
+}
+
+.login-heading {
+  display: grid;
+  gap: 12px;
+}
+
+.login-title {
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.login-subtitle,
+.login-label {
+  color: var(--muted);
+  font-size: 15px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.login-field {
+  display: grid;
+  gap: var(--space-8);
+}
+
+.login-input-wrap {
+  display: flex;
+  align-items: center;
+  height: 48px;
+  padding: 0 var(--space-s);
+  background: var(--white);
+  border: var(--stroke) solid var(--line);
+  border-radius: var(--radius-s);
+}
+
+.login-input-wrap:focus-within {
+  border-color: var(--gold);
+}
+
+.login-input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  font-size: var(--text-s);
+}
+
+.login-eye {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin-right: -6px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-s);
+  background: transparent;
+  cursor: pointer;
+}
+
+.login-eye[aria-pressed="true"] {
+  background: var(--surface);
+}
+
+.login-error {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: 12px;
+  background: var(--danger-bg);
+  border-left: 3px solid var(--danger-strong);
+  border-radius: var(--radius-s);
+  color: var(--danger-strong);
+  font-weight: 600;
+}
+
+.login-error[hidden] {
+  display: none;
+}
+
+.login-submit {
+  height: 48px;
+  border: 0;
+  border-radius: var(--radius-s);
+  background: var(--gold);
+  color: var(--white);
+  font-size: 18px;
+  font-weight: 600;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.login-submit[aria-busy="true"] {
+  cursor: progress;
+  opacity: 0.85;
+}
+
+/* ---------- cot phai (5:5) ---------- */
+.login-hero {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 64px;
+  overflow: hidden;
+  color: var(--white);
+  background: linear-gradient(var(--shade), var(--shade)), url("../img/login-hero.jpg") center / cover no-repeat;
+}
+
+.login-hero-top,
+.login-hero-bottom {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.login-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+  font-weight: 600;
+}
+
+.login-version {
+  opacity: 0.8;
+}
+
+.login-hero-bottom span {
+  opacity: 0.6;
+  color: var(--bg);
+}
+
+.login-poetry {
+  display: grid;
+  gap: 32px;
+}
+
+.login-wordmark {
+  font-size: 72px;
+  font-weight: 600;
+  line-height: 1.05;
+}
+
+.login-quote {
+  max-width: 600px;
+  color: var(--bg);
+  font-size: 24px;
+  font-weight: 600;
+}
+
+/* Man hinh laptop nho: thu cot trai, an anh khi qua hep (D12: chi lam cho may tinh). */
+@media (max-width: 1100px) {
+  .login-page {
+    grid-template-columns: 480px 1fr;
+  }
+
+  .login-wordmark {
+    font-size: 56px;
+  }
+}
+
+@media (max-width: 800px) {
+  .login-page {
+    grid-template-columns: 1fr;
+  }
+
+  .login-panel {
+    padding: var(--space-l) var(--space-s);
+  }
+
+  .login-hero {
+    display: none;
+  }
+}

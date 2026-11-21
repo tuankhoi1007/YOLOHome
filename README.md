@@ -1,83 +1,59 @@
-# YOLOHome
+# YOLOHome — Hướng dẫn chạy cho cả nhóm
 
-Đồ án đa ngành hướng trí tuệ nhân tạo, HK261, Nhóm 1, lớp L01. Mô hình một phòng nhà thông minh trên kit OhStem Yolo:Bit.
+Đồ án đa ngành hướng trí tuệ nhân tạo, HK261, Nhóm 1, lớp L01. Mô hình một phòng nhà thông minh trên kit OhStem **Yolo:Bit**.
 
-Laptop đóng vai IoT Gateway: đọc cảm biến qua cáp USB, đẩy số liệu lên Adafruit IO, so ngưỡng, rồi gửi lệnh đèn xuống board. AI không chạy trên Yolo:Bit.
+Laptop đóng vai **IoT Gateway**: đọc cảm biến qua cáp USB, đẩy số liệu lên Adafruit IO, so ngưỡng, gửi lệnh đèn / quạt / cửa xuống board, và chạy web điều khiển. AI không chạy trên Yolo:Bit.
 
-Đặc tả nhóm nằm ở [User_Requirements.md](User_Requirements.md). Bản nháp báo cáo nằm ở [Bao_cao_NhaThongMinh.md](Bao_cao_NhaThongMinh.md). Checklist thí nghiệm chi tiết hơn nằm ở [code/HUONG_DAN.md](code/HUONG_DAN.md).
+Tài liệu liên quan: đặc tả [User_Requirements.md](User_Requirements.md) · báo cáo nháp [Bao_cao_NhaThongMinh.md](Bao_cao_NhaThongMinh.md) · checklist Module 1–2 [code/HUONG_DAN.md](code/HUONG_DAN.md) · checklist phần cứng Gate 1 + 3 [code/KIEM_TRA_GATE_1_3.md](code/KIEM_TRA_GATE_1_3.md) · giao thức [docs/PROTOCOL.md](docs/PROTOCOL.md) · tiến độ [docs/ROADMAP.md](docs/ROADMAP.md).
 
-## Đã chạy được
+README này là nguồn chính cho cách cài và chạy. Hai file checklist chỉ để tick khi chạy thử trên board.
 
-Vòng khép kín của Module 1 và Module 2:
+---
 
-1. `code/yolobit.py` chạy trên board. Khoảng mỗi 2 giây in một dòng `T:31.2,H:60,L:44`.
-2. `code/gateway.py` chạy trên laptop, đọc dòng đó qua cổng COM.
-3. Gateway gửi ba feed `nhiet-do`, `do-am`, `anh-sang` lên Adafruit IO bằng MQTT.
-4. Gateway so với ngưỡng. Trong ngưỡng thì feed `canh-bao` là `Bình thường` và board nhận `LED:GREEN`. Vượt ngưỡng thì feed ghi câu tiếng Việt và board nhận `LED:RED`.
-5. Đèn ma trận 5x5 và 4 LED RGB trên cổng P14 đổi theo lệnh đó. Vượt ngưỡng: ma trận sáng hết, RGB đỏ nhấp nháy. Trong ngưỡng: một điểm giữa ma trận, RGB xanh lá.
+## Mục lục
 
-Có hai cách chạy phụ, không thay thế gateway:
+1. [Bắt đầu nhanh](#1-bắt-đầu-nhanh)
+2. [Cài đặt một lần trên laptop](#2-cài-đặt-một-lần-trên-laptop)
+3. [Chuẩn bị board](#3-chuẩn-bị-board)
+4. [Chạy](#4-chạy)
+5. [Dùng web](#5-dùng-web)
+6. [Lỗi thường gặp](#6-lỗi-thường-gặp)
+7. [Giao thức và thư mục](#7-giao-thức-và-thư-mục)
+8. [Đã làm và chưa làm](#8-đã-làm-và-chưa-làm)
 
-| Lệnh | Khi nào dùng |
-| --- | --- |
-| `python gateway.py` | Cách chạy chính. Cần cắm board và có mạng. |
-| `python module1.py` | Chỉ đẩy cảm biến lên cloud, không so ngưỡng, không gửi lệnh đèn. |
-| `python module2.py` | Không cần board. Nghe số đã có trên Adafruit rồi cập nhật feed `canh-bao`. Không điều khiển được đèn. |
+---
 
-## Chưa làm
+## 1. Bắt đầu nhanh
 
-Làm tiếp sau khi vòng ở trên đã thấy số mới trên Adafruit và đèn đổi màu.
+> **Mọi lệnh trong README chạy trong thư mục `code`**, không phải thư mục gốc repo. `requirements.txt`, `.env`, `.venv` đều nằm trong `code/`.
+>
+> Mở terminal ở gốc repo rồi gõ `cd code`. Kiểm tra: gõ `dir` (PowerShell) hoặc `ls` (Linux/macOS) phải thấy `requirements.txt` và ba thư mục `board`, `yolohome`, `web`.
 
-| Phần | Trạng thái | Chỗ bắt đầu |
+Chọn đường của bạn, làm đúng các mục theo thứ tự:
+
+| Bạn muốn | Cần board? | Làm theo |
 | --- | --- | --- |
-| Module 3 — bật tắt đèn, quạt, cửa từ xa | Chưa có feed `den`, `quat`, `cua` và chưa có lệnh serial tương ứng | `gateway.py` đang chỉ gửi `LED:RED` / `LED:GREEN`. Thêm feed trong `config.py`, subscribe trong `gateway.py`, đọc lệnh mới trong `yolobit.py`. |
-| Module 4 — nhật ký | Chưa có | Adafruit đã lưu lịch sử từng feed. Nhật ký bật/tắt và nhận diện mặt cần chỗ ghi riêng, hiện chưa có file nào. |
-| Module 5 — dashboard | Chưa dựng | Tạo dashboard trên [io.adafruit.com](https://io.adafruit.com) từ các feed key bên dưới. Web riêng làm sau, không phải ứng dụng native. |
-| Nhận diện khuôn mặt | Chưa có | Webcam laptop, đúng người thì servo mở cửa. Sai hoặc lỗi thì vẫn mở được bằng nút. Không chạy model trên board. |
-| Giọng nói tiếng Việt | Chưa có | Mic laptop, vài lệnh cố định cho đèn và quạt. Không dùng LLM. |
-| LCD 16x2 | Chỉ có trong bản thử | `code/board_main_backup.py`. Bản đang nạp (`yolobit.py`) không hiện LCD. |
+| **Demo đầy đủ**: board đọc cảm biến, web hiện số, cảnh báo đổi đèn, điều khiển đèn / quạt / cửa | Có | 2.1 → 2.2 → 2.3 → 3.1 → 3.2 → 4.1 |
+| Xem và thử giao diện web, không có board trong tay | Không | 2.1 → 2.2 → 4.2 |
+| Chạy gateway không có web, điều khiển bằng dashboard Adafruit | Có | 2.1 → 2.2 → 2.3 → 3.1 → 3.2 → 4.3 |
 
-Tài khoản Adafruit miễn phí tối đa 10 feed và khoảng 30 điểm dữ liệu mỗi phút. Trước khi thêm feed mới, xóa feed cũ không dùng (`temperature`, `humidity`, `light`). Chương trình này không ghi vào ba feed đó.
+Lệnh viết cho **PowerShell** trên Windows. Dùng **Linux / macOS**: thay `.\.venv\Scripts\python.exe` bằng `./.venv/bin/python`; phần riêng cho Linux nằm ở 2.1 và 3.3.
 
-4 LED RGB cổng P14 đang là đèn cảnh báo của Module 2. Module 3 cũng cần đèn bật tay. Cần chốt dùng chung bốn LED này hay tách đèn cảnh báo sang ma trận, rồi mới gắn relay quạt và servo. Đừng gán quạt vào P0 hoặc P14: P0 là cảm biến ánh sáng, P14 là RGB.
+**Ba quy tắc luôn nhớ:**
 
-`code/board_main_backup.py` là firmware thử lúc trước (LCD, siêu âm, servo, in JSON). Ánh sáng trong file đó cắm P2 và gửi analog thô. Không nạp file này khi muốn chạy đúng hướng dẫn bên dưới. Siêu âm không nằm trong phạm vi đã chốt của nhóm.
+- Mỗi lúc chỉ **một** chương trình giữ cổng COM: OhStem, `python -m yolohome.gateway` hoặc `python -m yolohome`. OhStem chỉ dùng để nạp code; nạp xong phải ngắt.
+- **Không** chạy `board/yolobit.py` trên laptop. File đó là MicroPython, chỉ chạy trên board.
+- Web chỉ mở được trên chính laptop chạy nó (`http://127.0.0.1:8000`), không mở từ điện thoại hay máy khác. Đây là chủ ý, để không ai trong Wi-Fi mở cửa được.
 
-## Kiến trúc đang chạy
+---
 
-```mermaid
-flowchart LR
-  dht[DHT20 va anh sang P0] --> yolo[yolobit.py]
-  yolo --> usb[USB Serial]
-  usb --> gw[gateway.py]
-  gw --> mqtt[MQTT Adafruit IO]
-  mqtt --> gw
-  gw --> usb
-  yolo --> den[Ma tran va 4 LED RGB P14]
-```
+## 2. Cài đặt một lần trên laptop
 
-Chiều điều khiển hiện có mới là lệnh đèn cảnh báo: Gateway so ngưỡng rồi ghi `LED:RED` hoặc `LED:GREEN` xuống USB. Dashboard và web chưa gửi lệnh quạt hay cửa.
+### 2.1 Python và thư viện
 
-## Phần cứng của bản đang chạy
+Cần **Python 3** (khuyên dùng 3.11 trở lên) và Internet. Thư viện nằm trong `code/requirements.txt`: `paho-mqtt`, `pyserial`, `python-dotenv`. Web không cần cài thêm gì (không Node, không npm).
 
-| Thiết bị | Chỗ cắm |
-| --- | --- |
-| DHT20 | Một cổng I2C trên mạch mở rộng |
-| Cảm biến ánh sáng | P0 |
-| 4 LED RGB của kit | P14. Không cắm chung P0 |
-| Ma trận 5x5 | Có sẵn trên Yolo:Bit, chỉ có màu đỏ |
-
-Yolo:Bit nối laptop bằng cáp USB. Laptop cần Internet để tới Adafruit.
-
-## Cách chạy
-
-OhStem App và `gateway.py` không được giữ cùng một cổng COM. OhStem chỉ dùng để nạp code. Nạp và lưu xong thì ngắt kết nối OhStem, rồi mới chạy gateway. Giữ nguyên dây USB.
-
-Không chạy `python yolobit.py` trên laptop. File đó là MicroPython của board.
-
-### 1. Môi trường trên laptop
-
-Cần Python 3. Trong PowerShell:
+**Windows** (PowerShell, đứng ở gốc repo):
 
 ```powershell
 cd code
@@ -86,138 +62,322 @@ py -3 -m venv .venv
 copy .env.example .env
 ```
 
-Mở `.env` và điền:
+> Luôn chạy bằng `.\.venv\Scripts\python.exe`, không gõ `python` trần. Trên một số máy, `python` là bản của MSYS2 và không có pip.
 
-- `AIO_USERNAME`: username Adafruit IO.
-- `AIO_KEY`: Active Key (biểu tượng chìa khóa vàng trên [io.adafruit.com](https://io.adafruit.com)), không phải mật khẩu đăng nhập.
-- `COM_PORT`: điền sau bước 3, khi OhStem hiện tên cổng. Mỗi máy một cổng, thường dạng `COM11` hoặc `COM12`.
+**Linux / macOS** (bash, đứng ở gốc repo):
 
-File `.env` nằm trong `.gitignore`. Không commit, không gửi key lên nhóm chat.
+```bash
+cd code
+python3 -m venv .venv
+./.venv/bin/python -m pip install -r requirements.txt
+cp .env.example .env
+```
 
-Thư viện laptop: `paho-mqtt`, `pyserial`, `python-dotenv` (xem `code/requirements.txt`).
+> - Ubuntu/Debian báo thiếu `venv`: `sudo apt install python3-venv python3-pip`.
+> - Luôn chạy bằng `./.venv/bin/python`, không gõ `python` trần (nhiều distro chỉ có `python3`).
+> - **WSL2** (Linux chạy trong Windows): WSL không thấy cổng USB sẵn. Muốn dùng board thật, cài [usbipd-win](https://learn.microsoft.com/windows/wsl/connect-usb) rồi gắn Yolo:Bit vào WSL (`usbipd attach --wsl --busid <BUSID>`); không thì chạy chế độ giả lập ở 4.2. Trình duyệt ở Windows vẫn mở được `http://127.0.0.1:8000` của web chạy trong WSL2.
 
-### 2. Feed trên Adafruit IO
+### 2.2 File `.env`
 
-Đúng tên cột **Key**, không phải tên hiển thị.
+Mở file `code/.env` bằng Notepad/VS Code (Linux: `nano`, `gedit`, VS Code...) và điền:
 
-| Key | Ý nghĩa | Bắt buộc để demo Module 1–2 |
+| Dòng | Điền gì |
+| --- | --- |
+| `AIO_USERNAME` | Username Adafruit IO của nhóm |
+| `AIO_KEY` | **Active Key** (biểu tượng chìa khóa vàng trên [io.adafruit.com](https://io.adafruit.com)), không phải mật khẩu đăng nhập |
+| `COM_PORT` | Để tạm. Điền ở 3.2, khi OhStem hiện tên cổng (Windows thường `COM11`, `COM12`; Linux `/dev/ttyACM0` hoặc `/dev/ttyUSB0`; macOS `/dev/cu.usbmodem...`; mỗi máy một khác) |
+| `WEB_PASSWORD` | Mật khẩu **riêng** để đăng nhập web. Không dùng lại `AIO_KEY` |
+| `WEB_DATA` | `mock`, `gateway` hoặc `live` (xem bảng ở mục 4) |
+
+Các dòng còn lại (tên feed, ngưỡng mặc định, `WEB_PORT`...) để nguyên như `.env.example`.
+
+> **Bảo mật:** `.env` đã nằm trong `.gitignore`. Không commit, không gửi key lên nhóm chat, không chụp màn hình có key. Xin username/key từ trưởng nhóm qua tin nhắn riêng.
+
+### 2.3 Feed trên Adafruit IO
+
+Chỉ cần làm một lần cho tài khoản của nhóm. Tên phải đúng cột **Key**, không phải tên hiển thị.
+
+| Key | Ý nghĩa | Bắt buộc? |
 | --- | --- | --- |
 | `nhiet-do` | Nhiệt độ, °C | Có |
 | `do-am` | Độ ẩm không khí, % | Có |
 | `anh-sang` | Ánh sáng, thang 0–100 | Có |
-| `canh-bao` | Câu cảnh báo | Có |
-| `nguong-nhiet` | Ngưỡng nhiệt. Cao hơn số này thì cảnh báo | Nên có. Không có thì dùng `TEMP_MAX` trong `.env` (mặc định 32) |
-| `nguong-am` | Ngưỡng độ ẩm | Không bắt buộc. Không có thì dùng `HUMID_MAX` (mặc định 80) |
-| `nguong-sang` | Ngưỡng ánh sáng | Không bắt buộc. Không có thì dùng `LIGHT_MIN` (mặc định 20) |
+| `canh-bao` | Câu cảnh báo (`Bình thường` hoặc nội dung vượt ngưỡng) | Có |
+| `nguong-nhiet` | Cảnh báo khi nhiệt độ **>** số này (0–80) | Nên có. Không có thì dùng `TEMP_MAX` trong `.env` (32) |
+| `nguong-am` | Cảnh báo khi độ ẩm **>** số này (0–100) | Không bắt buộc. Không có thì dùng `HUMID_MAX` (80) |
+| `nguong-sang` | Cảnh báo khi ánh sáng **<** số này (0–100) | Không bắt buộc. Không có thì dùng `LIGHT_MIN` (20) |
+| `den` | Đèn (Module 3): `OFF` hoặc một trong 4 màu `#ffffff`, `#b8860b`, `#9333ea`, `#2563eb` | Có, cho Module 3 |
+| `quat` | Quạt (Module 3): tốc độ 0–100 %, `0` = tắt | Có, cho Module 3 |
+| `cua` | Cửa (Module 3): `OPEN` hoặc `CLOSE` | Có, cho Module 3 |
 
-Gateway tự tạo feed còn thiếu lúc khởi động. Nếu tài khoản đã đủ 10 feed, nó in `Tai khoan da du 10 feed` và bỏ qua; ngưỡng ẩm và sáng vẫn lấy từ `.env`.
+- Đủ cả bảng là **10/10 feed**, đúng giới hạn bản miễn phí. Không còn chỗ cho feed mới.
+- Gateway tự tạo feed còn thiếu lúc khởi động. Nếu tài khoản đã đủ 10 feed, nó in `Tai khoan da du 10 feed` và bỏ qua.
+- Phải xóa các feed cũ không dùng `temperature`, `humidity`, `light` thì mới đủ chỗ cho bảng trên.
+- `den`, `quat`, `cua` ghi **trạng thái thật** của thiết bị: gateway chỉ cập nhật sau khi board xác nhận (`ACK:`). Lúc khởi động gateway đặt `OFF`, `0`, `CLOSE`.
+- Bản miễn phí chỉ cho khoảng **30 điểm dữ liệu mỗi phút**. Chương trình đã tự giới hạn; đừng tự thêm vòng gửi dữ liệu.
+- Dashboard Adafruit (Module 5) dựng theo danh sách khối trong [docs/ADAFRUIT_DASHBOARD.md](docs/ADAFRUIT_DASHBOARD.md).
 
-Muốn đổi ngưỡng nhiệt không cần sửa code: mở feed `nguong-nhiet`, **Add Data**, ghi số mới (trong khoảng 0–80). Gateway đang chạy sẽ nhận qua MQTT.
+---
 
-Cảnh báo khi nhiệt độ **lớn hơn** ngưỡng, độ ẩm **lớn hơn** ngưỡng, ánh sáng **nhỏ hơn** ngưỡng. Nhiều điều kiện cùng lúc thì `canh-bao` nối bằng ` | `.
+## 3. Chuẩn bị board
 
-### 3. Nạp code lên Yolo:Bit
+Bỏ qua mục này nếu chỉ chạy giả lập (4.2).
 
-1. Cắm board vào mạch mở rộng, DHT20 vào I2C, ánh sáng vào P0, 4 LED RGB vào P14, cáp USB vào laptop.
-2. Mở [app.ohstem.vn](https://app.ohstem.vn) bằng Chrome hoặc Edge, chọn thiết bị Yolo:Bit, kết nối USB.
-3. Ghi lại tên cổng COM. Nếu không thấy cổng, cài driver tại [ohstem.vn/driver](https://ohstem.vn/driver) rồi cắm lại.
-4. Sửa `COM_PORT` trong `.env` cho trùng cổng đó.
-5. Trên OhStem, chuyển sang chế độ Python. Xóa code mẫu. Mở `code/yolobit.py`, dán toàn bộ vào ô soạn thảo, bấm **Chạy**.
-6. Cửa sổ serial phải in khoảng mỗi 2 giây một dòng như `T:31.2,H:60,L:44`. Thiếu độ ẩm vẫn được, ví dụ `T:31.2,L:44`.
-7. Nếu báo thiếu `aiot_dht20` hoặc `aiot_rgbled`: vào thư viện, tải **AIOT KIT**, bấm **Chạy** lại. Không có thư viện thì file vẫn đọc DHT20 trực tiếp qua I2C và thử NeoPixel.
-8. Thấy dòng `T:...` thì bấm **Lưu project vào thiết bị**.
-9. Bấm **ngắt kết nối** trong OhStem. Đóng tab OhStem nếu cổng COM vẫn bị chiếm.
+### 3.1 Cắm dây
 
-Đúng lúc này ma trận còn một điểm giữa và 4 LED RGB sáng xanh.
+| Thiết bị | Chỗ cắm |
+| --- | --- |
+| DHT20 (nhiệt, ẩm) | Một cổng **I2C** trên mạch mở rộng |
+| Cảm biến ánh sáng | **P0** |
+| 4 LED RGB | **P14**. Không cắm chung P0. Dùng chung cho cảnh báo và đèn thủ công; cảnh báo được ưu tiên (D3) |
+| Quạt (PWM) | **P1** (D4) |
+| Servo cửa | **P4**, hàng servo (D4) |
+| Ma trận 5x5 | Có sẵn trên Yolo:Bit. Luôn hiện trạng thái cảnh báo |
 
-### 4. Chạy gateway
+Cắm Yolo:Bit vào mạch mở rộng, cắm các thiết bị theo bảng, rồi cắm cáp USB vào laptop. Không gán thiết bị mới vào P0 hoặc P14. Quạt và servo không khởi động cùng lúc (cách nhau ít nhất 0,5 giây, `docs/PROTOCOL.md`).
 
-OhStem đã ngắt kết nối. PowerShell đang ở thư mục `code`:
+### 3.2 Nạp `yolobit.py` bằng OhStem
 
-```powershell
-.\.venv\Scripts\python.exe gateway.py
-```
+1. Mở [app.ohstem.vn](https://app.ohstem.vn) bằng Chrome hoặc Edge, chọn **Yolo:Bit**, bấm kết nối **USB**.
+2. Ghi lại tên cổng COM hiện ra. Không thấy cổng thì cài driver tại [ohstem.vn/driver](https://ohstem.vn/driver) rồi cắm lại. Dùng Linux: tìm cổng theo 3.3.
+3. Sửa `COM_PORT` trong `code/.env` cho trùng cổng đó, lưu file.
+4. Trên OhStem chuyển sang chế độ **Python**. Xóa code mẫu. Mở `code/board/yolobit.py`, chọn hết, dán vào ô soạn thảo, bấm **Chạy**.
+5. Mở cửa sổ serial. Khoảng mỗi 2 giây phải có một dòng như `T:31.2,H:60,L:44` (thiếu độ ẩm, ví dụ `T:31.2,L:44`, vẫn được).
+6. Báo thiếu `aiot_dht20` / `aiot_rgbled`: vào thư viện, tải **AIOT KIT**, bấm **Chạy** lại.
+7. Thấy dòng `T:...` thì bấm **Lưu project vào thiết bị**.
+8. Bấm **ngắt kết nối** trong OhStem. Giữ nguyên dây USB. Cổng vẫn bị chiếm thì đóng hẳn tab OhStem.
 
-Cửa sổ laptop in lần lượt các dòng kiểu:
+Đúng khi ma trận 5x5 sáng một điểm ở giữa, 4 LED RGB **tắt** (đèn thủ công mặc định tắt), quạt đứng yên, cửa đóng. Nếu 4 LED sáng xanh lá thì board đang chạy `yolobit.py` cũ: nạp lại.
+
+> **Không** nạp `code/board/board_main_backup.py` (bản thử cũ, cảm biến cắm khác chân).
+
+### 3.3 Tìm cổng trên Linux
+
+Thay cho bước 2–3 ở trên:
+
+- OhStem trên Chrome/Edge không hiện tên cổng kiểu `/dev/...`. Rút cáp, chạy `ls /dev/ttyACM* /dev/ttyUSB*`, cắm lại, chạy lệnh lần nữa; cổng mới xuất hiện là `COM_PORT` (ví dụ `COM_PORT=/dev/ttyACM0`). Hoặc xem `dmesg | tail`.
+- Báo `Permission denied`: thêm tài khoản vào nhóm `dialout` rồi **đăng xuất và đăng nhập lại**: `sudo usermod -aG dialout $USER` (Arch: nhóm `uucp`). Kiểm tra bằng lệnh `groups`.
+- Cổng biến mất ngay sau khi cắm: `brltty` đang chiếm, gỡ bằng `sudo apt remove brltty`.
+- Chrome/Chromium bản **snap** hay **flatpak** có thể không thấy cổng serial; dùng bản `.deb` của Google Chrome hoặc Chrome/Edge tải từ trang chủ.
+
+---
+
+## 4. Chạy
+
+Đứng trong thư mục `code`. Chọn một chế độ:
+
+| Chế độ | Lệnh | `WEB_DATA` | Cần board? | Điều khiển đèn / quạt / cửa | Mục |
+| --- | --- | --- | --- | --- | --- |
+| **Web cùng board** (demo chính) | `python -m yolohome` | `gateway` | Có | Có, từ web và dashboard | 4.1 |
+| Web giả lập | `python -m yolohome` | `mock` | Không | Giả lập | 4.2 |
+| Gateway không web | `python -m yolohome.gateway` | (không dùng) | Có | Có, từ dashboard Adafruit | 4.3 |
+| Web chỉ đọc, gateway chạy riêng | `python -m yolohome` | `live` | Không (gateway ở nơi khác) | Chưa | 4.3 |
+| Chỉ gửi cảm biến | `python -m yolohome.module1` | (không dùng) | Có | Không | 4.3 |
+| Chỉ cảnh báo từ số trên Adafruit | `python -m yolohome.module2` | (không dùng) | Không | Không | 4.3 |
+
+Dừng chương trình bằng `Ctrl+C`. Muốn đổi chế độ thì tắt chương trình đang chạy trước, vì hai chương trình không giữ chung được cổng COM.
+
+### 4.1 Web cùng board (cách demo chính)
+
+Một lệnh duy nhất: web chạy luôn Module 1 + 2 + 3 (đọc board, gửi Adafruit, so ngưỡng, đổi đèn cảnh báo, điều khiển đèn / quạt / cửa) và hiện số lên trình duyệt.
+
+1. Làm xong 3.2, OhStem đã ngắt kết nối.
+2. Trong `code/.env`: `WEB_DATA=gateway`, có `WEB_PASSWORD`, `COM_PORT` đúng.
+3. Chạy:
+
+   ```powershell
+   .\.venv\Scripts\python.exe -m yolohome
+   ```
+
+4. Mở trình duyệt **trên chính laptop đó**: `http://127.0.0.1:8000`, đăng nhập bằng `WEB_PASSWORD`.
+
+Cửa sổ PowerShell in lần lượt các dòng kiểu:
 
 ```text
-Gateway: module 1 + module 2
-Da ket noi Adafruit
+Web - Module 5
+Du lieu: chay luon Module 1 + 2 tren cong COM12
+Gateway: module 1 + module 2 + module 3
 Dang doc COM12 toc do 115200
+Da ket noi Adafruit
 Nhan: T:31.2,H:60,L:44
 Doc: T=31.2 H=60 L=44
 Gui: nhiet-do=31.2, do-am=60, anh-sang=44
 Canh bao: Bình thường
 Lenh den: GREEN
+Mo trinh duyet: http://127.0.0.1:8000
 ```
 
-Số và tên cổng tùy máy. `Canh bao` chỉ in lại khi nội dung đổi.
+**Kiểm tra nhanh:**
 
-Việc kiểm tra:
+- [ ] Thẻ nhiệt độ, độ ẩm, ánh sáng trên web đổi theo board trong vòng 5 giây; trên Adafruit `nhiet-do`, `do-am`, `anh-sang` có điểm mới.
+- [ ] Hơ tay vào DHT20 cho vượt ngưỡng: web hiện thẻ đỏ "VƯỢT NGƯỠNG!", có thông báo góc phải; ma trận sáng hết, 4 LED RGB nháy đỏ; feed `canh-bao` có chữ `Nhiệt độ cao`. Bỏ tay ra: tất cả về bình thường.
+- [ ] Bấm **Cấu hình ngưỡng**, lưu ngưỡng nhiệt cao hơn số đang đo: feed `nguong-nhiet` đổi, board hết cảnh báo.
+- [ ] Bật đèn, đổi màu; kéo thanh quạt rồi thả; bấm mở cửa. Mỗi thiết bị phản ứng trong 3 giây, thẻ trên web và feed `den` / `quat` / `cua` khớp trạng thái thật. Cửa tự đóng sau 10 giây.
 
-- Trên Adafruit, `nhiet-do`, `do-am`, `anh-sang` có điểm mới.
-- Hơ tay vào DHT20 cho nhiệt vượt `nguong-nhiet`. Feed `canh-bao` có chữ `Nhiệt độ cao`, ma trận sáng hết, RGB nhấp nháy đỏ.
-- Bỏ tay, đợi nhiệt xuống. Feed về `Bình thường`, đèn về xanh.
-- Che cảm biến ánh sáng. Dưới ngưỡng (mặc định 20) thì cảnh báo thêm `Ánh sáng thấp`.
-- Dừng bằng `Ctrl+C`.
+Đang có cảnh báo thì 4 LED luôn nháy đỏ, kể cả khi vừa bật đèn màu khác; hết cảnh báo chúng về màu đã chọn. Kiểm tra đầy đủ từng bước (kể cả hiệu chỉnh góc servo, tốc độ quạt) theo [code/KIEM_TRA_GATE_1_3.md](code/KIEM_TRA_GATE_1_3.md).
 
-Số không đổi thì gateway không gửi lại ngay. Nhiệt phải lệch ít nhất 0,3°C, ẩm 1%, sáng 2 đơn vị, và hai lần gửi cùng một feed cách nhau ít nhất 2 giây. Dù số đứng yên, cứ khoảng 15 giây vẫn gửi một nhịp để feed không chết. Đây là chủ ý, để khỏi vượt trần 30 điểm/phút. `READ_INTERVAL` trong `.env` (mặc định 3 giây) là nhịp laptop nhận một mẫu, không phải nhịp MQTT.
+### 4.2 Web giả lập (không cần board)
 
-### 5. Thử Module 2 khi không cầm board
+Dùng để xem và thử giao diện khi không có board. Không gửi gì lên Adafruit.
 
-Gateway phải đang tắt, vì hai chương trình không cần cùng gửi `canh-bao`.
+1. Trong `code/.env`: `WEB_DATA=mock` (mặc định) và có `WEB_PASSWORD`. Vẫn cần `AIO_USERNAME`, `AIO_KEY` có giá trị (chương trình kiểm tra lúc khởi động).
+2. Chạy `.\.venv\Scripts\python.exe -m yolohome`, mở `http://127.0.0.1:8000`.
+
+Ở chế độ này mọi thứ đều giả lập: cảm biến đổi nhẹ mỗi 3 giây; bật/tắt đèn, đổi màu, chỉnh tốc độ quạt, mở cửa (tự khóa sau 10 giây) đều chạy. Có các nút để thử:
+
+| Nút | Thử điều gì |
+| --- | --- |
+| **Mô phỏng vượt ngưỡng nhiệt độ** (dưới thẻ cảm biến) | Nhiệt lên quá ngưỡng 30 giây: thẻ đỏ, đèn đỏ, thông báo |
+| **Test Offline** (trên header) | Mất kết nối: banner đỏ, thẻ thiết bị mờ, không gửi được lệnh |
+| Nút **micro** | Lần lượt các lệnh giọng nói "bật đèn", "tắt đèn", "bật quạt", "tắt quạt" |
+
+### 4.3 Các cách chạy khác
+
+| Lệnh | Khi nào dùng |
+| --- | --- |
+| `.\.venv\Scripts\python.exe -m yolohome.gateway` | Chạy Module 1 + 2 + 3 không có web (giống 4.1 nhưng không có trang web). In và gửi y hệt. Điều khiển thiết bị bằng dashboard Adafruit (`docs/ADAFRUIT_DASHBOARD.md`). |
+| `WEB_DATA=live` + `python -m yolohome` | Khi `python -m yolohome.gateway` đang chạy riêng (cửa sổ khác hoặc máy khác). Web chỉ đọc số từ Adafruit, mất kết nối nếu 45 giây không có số mới. Chưa điều khiển được đèn / quạt / cửa ở chế độ này. Không chạy chung với `WEB_DATA=gateway`. |
+| `.\.venv\Scripts\python.exe -m yolohome.module1` | Chỉ đẩy cảm biến lên Adafruit, không so ngưỡng, không đổi đèn. |
+| `.\.venv\Scripts\python.exe -m yolohome.module2` | Không cần board. Nghe số đang có trên Adafruit rồi cập nhật `canh-bao`. Tắt gateway trước. Thử: thêm một điểm vào `nhiet-do` lớn hơn ngưỡng trên Adafruit. |
+
+### 4.4 Đổi ngưỡng và nhịp gửi dữ liệu
+
+Đổi ngưỡng không cần sửa code: dùng nút **Cấu hình ngưỡng** trên web, hoặc trên Adafruit mở feed `nguong-nhiet` → **Add Data** → ghi số mới. Gateway đang chạy nhận ngay.
+
+Gateway không gửi lại khi số gần như không đổi: nhiệt phải lệch ≥ 0,3°C, ẩm ≥ 1%, sáng ≥ 2; cùng một feed cách nhau ≥ 2 giây; số đứng yên thì cứ ~15 giây gửi một nhịp. Đây là chủ ý để không vượt 30 điểm/phút. `READ_INTERVAL` (mặc định 3 giây) là nhịp laptop lấy mẫu, không phải nhịp gửi.
+
+---
+
+## 5. Dùng web
+
+| Trang | Nội dung |
+| --- | --- |
+| `/` | Bảng điều khiển: cảm biến, trạng thái LED, điều khiển thiết bị, khuôn mặt, giọng nói, nhật ký gần nhất |
+| `/log.html` | Nhật ký: lọc theo loại, ngày, tìm chữ, phân trang |
+| `/login.html` | Đăng nhập bằng `WEB_PASSWORD` |
+| `/components.html` | Xem nút, nhãn, công tắc theo Figma (cho người làm giao diện) |
+
+Những gì có dữ liệu thật ở chế độ `gateway` / `live`:
+
+| Phần | Trạng thái |
+| --- | --- |
+| Nhiệt độ, độ ẩm, ánh sáng, cảnh báo, đèn LED cảnh báo | Có (Module 1–2) |
+| Cấu hình ngưỡng | Có, lưu thẳng lên feed `nguong-*` (`docs/PROTOCOL.md` v0.1.1). Feed nào tài khoản chưa có thì web báo rõ, không tự tạo |
+| Nhật ký cảm biến | Có, lấy lịch sử từ Adafruit mỗi lần mở web |
+| Nhật ký điều khiển, cảnh báo | Chỉ trong RAM, tắt web là mất (nơi lưu lâu dài chưa chốt, D5) |
+| Đèn, quạt, cửa | Có ở `gateway` (`PROTOCOL.md` v0.2.1): thẻ chỉ đổi khi board xác nhận; cùng một thiết bị phải cách nhau 2 giây. Ở `live`: "Chưa có". Chưa chạy thử trên board (Gate 3) |
+| Khuôn mặt, giọng nói | "Chưa có": chờ Phase 6, Phase 7 |
+
+Sai mật khẩu 5 lần trong 1 phút thì bị chặn 1 phút. Phiên đăng nhập giữ 12 giờ; tắt `python -m yolohome` thì phải đăng nhập lại.
+
+---
+
+## 6. Lỗi thường gặp
+
+| Dòng in ra / hiện tượng | Việc làm |
+| --- | --- |
+| `ERROR: Could not open requirements file` | Đang đứng ở gốc repo. `cd code` rồi chạy lại (mục 1). |
+| `Thieu AIO_USERNAME trong file .env` | Chưa copy `.env.example` thành `.env`, hoặc chưa điền username/key (2.2). |
+| `Thieu WEB_PASSWORD trong file .env` | Thêm dòng `WEB_PASSWORD=...` vào `.env`. |
+| `Khong mo duoc COM11` | OhStem hoặc `python -m yolohome.gateway` còn giữ cổng, hoặc `COM_PORT` sai. Ngắt OhStem, tắt chương trình kia, sửa `.env`, chạy lại. |
+| `Permission denied: '/dev/ttyACM0'` (Linux) | Chưa có quyền đọc cổng. `sudo usermod -aG dialout $USER`, đăng xuất rồi đăng nhập lại (3.3). |
+| `No such file or directory: '/dev/ttyACM0'` (Linux) | Sai tên cổng, hoặc đang ở WSL2 chưa gắn USB. Tìm lại bằng `ls /dev/ttyACM* /dev/ttyUSB*` (3.3). |
+| `python3 -m venv` báo `ensurepip is not available` (Linux) | `sudo apt install python3-venv python3-pip`, xóa thư mục `.venv` cũ rồi tạo lại. |
+| `5 giay roi, board khong gui gi qua USB` | Board chưa chạy `yolobit.py`. Nạp lại, **Lưu project vào thiết bị**, ngắt OhStem, chạy lại. |
+| `Board dang o che do nap` | Rút cáp USB, cắm lại, ngắt OhStem, chạy lại. |
+| `Bo qua dong nay. Can dang T:31.2,H:60,L:44` | Board đang in câu khác. Kiểm tra đúng file `yolobit.py` đã dán lên board. |
+| `Khong doc duoc cam bien` | DHT20 chưa ở cổng I2C hoặc ánh sáng chưa ở P0. |
+| `Board khong tra loi lenh FAN:100 sau 3 giay` (hoặc `DOOR:`, `LIGHT:`); web báo "Thiết bị không phản hồi sau 3 giây" | Board chạy `yolobit.py` cũ (chưa có Module 3), hoặc thiết bị chưa cắm đúng P1 / P4. Nạp lại `yolobit.py`, kiểm tra dây. Feed tự quay về trạng thái thật. |
+| `Loi quat P1: ...` / `Loi servo P4: ...` trên serial của board | Quạt hoặc servo chưa cắm, hoặc cắm sai cổng. |
+| `Vừa gửi lệnh. Đợi 2 giây rồi bấm lại.` trên web | Bấm cùng một thiết bị quá nhanh. Cố ý, để không vượt 30 điểm/phút. |
+| Quạt đặt số nhỏ mà không quay | Cánh cần lực để bắt đầu quay. Dùng số lớn hơn (xem mục hiệu chỉnh trong `code/KIEM_TRA_GATE_1_3.md`). |
+| `Khong ket noi duoc Adafruit` | Kiểm tra mạng, username và **Active Key** (không phải mật khẩu). |
+| `Tai khoan da du 10 feed` | Xóa feed thừa (`temperature`, `humidity`, `light`) rồi chạy lại. Ngưỡng vẫn lấy từ `.env`. |
+| Feed trên Adafruit không đổi số | Đợi ~15 giây. Số gần như không đổi thì chương trình cố ý không gửi. |
+| `Khong mo duoc cong 8000` | Chương trình khác dùng cổng. Thêm `WEB_PORT=8001` vào `.env`, mở `http://127.0.0.1:8001`. |
+| Web báo mất kết nối (`gateway`) | Board không gửi số quá 10 giây. Xem PowerShell có dòng `Nhan: T:...` không. |
+| Web báo mất kết nối (`live`) | `python -m yolohome.gateway` chưa chạy hoặc board không gửi số. |
+| `Sai quá nhiều lần` trên trang đăng nhập | Đợi 1 phút rồi thử lại. |
+| `py` không phải là lệnh | Chưa cài Python cho Windows từ [python.org](https://www.python.org/downloads/), nhớ tick "Add to PATH". |
+
+---
+
+## 7. Giao thức và thư mục
+
+Chân cắm phần cứng: xem bảng ở 3.1.
+
+### Luồng dữ liệu
+
+```mermaid
+flowchart LR
+  dht[DHT20 + anh sang P0] --> yolo[yolobit.py tren board]
+  yolo -- "USB: T:31.2,H:60,L:44" --> gw[Gateway tren laptop]
+  gw -- "USB: LED:, LIGHT:, FAN:, DOOR:" --> yolo
+  yolo -- "USB: ACK:..." --> gw
+  gw -- MQTT --> aio[Adafruit IO]
+  aio -- "nguong-*, den, quat, cua" --> gw
+  gw --> web[Web 127.0.0.1:8000]
+  web -- "luu nguong, lenh thiet bi" --> gw
+  yolo --> led[Ma tran + 4 LED RGB P14]
+  yolo --> fan[Quat P1]
+  yolo --> door[Servo cua P4]
+```
+
+"Gateway" là `python -m yolohome.gateway`, hoặc chính `python -m yolohome` khi `WEB_DATA=gateway`.
+
+### Giao thức USB (chi tiết ở `docs/PROTOCOL.md`)
+
+- Board → laptop: `T:31.2,H:60,L:44` (`T` °C, `H` %, `L` 0–100; thiếu một phần vẫn hợp lệ). JSON một dòng cũng được nhận.
+- Laptop → board: `LED:RED` (vượt ngưỡng: ma trận sáng hết, RGB nháy đỏ) hoặc `LED:GREEN` (bình thường).
+- Board trả `RGB:RED` / `RGB:GREEN` sau khi đổi đèn; gateway bỏ qua dòng này.
+- Laptop → board (Module 3): `LIGHT:OFF` / `LIGHT:RRGGBB` (đèn thủ công), `FAN:0`–`FAN:100` (tốc độ quạt), `DOOR:OPEN` / `DOOR:CLOSE`.
+- Board → laptop: `ACK:LIGHT:...`, `ACK:FAN:n`, `ACK:DOOR:...` khi làm xong. Không có ACK trong 3 giây thì gateway coi như lệnh không thành. Sau `DOOR:OPEN` 10 giây board tự đóng cửa và gửi `ACK:DOOR:CLOSE`.
+
+### Thư mục `code`
+
+| File | Chạy ở đâu / để làm gì |
+| --- | --- |
+| `board/yolobit.py` | Trên board (dán vào OhStem). Đọc cảm biến, vẽ đèn, nhận lệnh đèn / quạt / cửa và trả `ACK:`. |
+| `board/board_main_backup.py` | Bản thử cũ. Không nạp, không sửa. |
+| `python -m yolohome` | Laptop. Web + (khi `WEB_DATA=gateway`) Module 1–3. **Lệnh chính khi demo.** File: `yolohome/web/server.py`. |
+| `python -m yolohome.gateway` | Laptop. Module 1 + 2 + 3 không có web. Web dùng lại đúng vòng này. |
+| `python -m yolohome.module1`, `module2` | Laptop. Chạy riêng từng module để thử. |
+| `yolohome/config.py` | Không chạy riêng. Đọc `code/.env`, nối Adafruit. |
+| `yolohome/web/mock.py`, `live.py`, `gateway.py` | Không chạy riêng. Nguồn dữ liệu cho web theo `WEB_DATA`. |
+| `web/` | HTML, CSS, JS của web. Không cần build. |
+| `tests/` | Kiểm tra tự động (xem dưới). |
+| `requirements.txt` | Thư viện Python cho laptop (2.1). |
+| `.env.example` | Mẫu cấu hình. Copy thành `.env`, cùng thư mục `code/`. |
+| `HUONG_DAN.md` | Checklist chạy thử Module 1–2 dạng tick. |
+| `KIEM_TRA_GATE_1_3.md` | Checklist chạy phần cứng Gate 1 + Gate 3 và hiệu chỉnh servo, quạt. |
+
+### Chạy kiểm tra tự động
+
+Không cần board, không cần mạng, không đọc `.env` thật. Đứng trong thư mục `code`:
 
 ```powershell
-.\.venv\Scripts\python.exe module2.py
+.\.venv\Scripts\python.exe -m unittest discover -s tests -t .
 ```
 
-Trên Adafruit, thêm một điểm vào `nhiet-do` lớn hơn ngưỡng. Cửa sổ laptop in câu cảnh báo và feed `canh-bao` đổi theo. Đèn trên board không đổi, vì chương trình này không mở cổng COM.
+Linux / macOS: `./.venv/bin/python -m unittest discover -s tests -t .`
 
-## Giao thức USB
+Phải in `OK`. Chạy trước khi đẩy code lên nhánh chung.
 
-Board gửi, laptop đọc:
+---
 
-```text
-T:31.2,H:60,L:44
-```
+## 8. Đã làm và chưa làm
 
-`T` độ C, `H` phần trăm, `L` ánh sáng 0–100. Thiếu một thành phần vẫn hợp lệ. JSON một dòng cũng được nhận, dạng `{"temperature":31.2,"humidity":60,"light":44}`. Bản `yolobit.py` đang nạp không in JSON.
-
-Laptop gửi, board đọc từng dòng:
-
-```text
-LED:RED
-LED:GREEN
-```
-
-Board trả `RGB:RED` hoặc `RGB:GREEN` sau khi đổi đèn. Gateway in dòng đó rồi bỏ qua, không coi là số đo.
-
-## Cấu trúc thư mục `code`
-
-| File | Chạy ở đâu |
+| Phần | Trạng thái |
 | --- | --- |
-| `yolobit.py` | Trên board, dán vào OhStem. Đọc cảm biến, vẽ đèn, nghe lệnh LED. |
-| `gateway.py` | Laptop. Ghép Module 1 và Module 2. |
-| `module1.py` | Laptop. Chỉ thu thập và gửi feed cảm biến. |
-| `module2.py` | Laptop. Chỉ so ngưỡng trên số liệu cloud. |
-| `config.py` | Không chạy riêng. Đọc `.env`, nối MQTT, tạo và đọc feed. |
-| `board_main_backup.py` | Bản thử cũ. Không nạp nếu muốn demo Module 1–2. |
-| `.env.example` | Mẫu. Copy thành `.env`. |
-| `HUONG_DAN.md` | Checklist cùng nội dung chạy, viết dạng việc cần tick. |
+| Module 1 — thu thập môi trường | Đã chạy (board → laptop → Adafruit → web). Chờ chạy lại toàn bộ trên board để đóng Gate 1 |
+| Module 2 — ngưỡng và cảnh báo | Đã chạy (LED cảnh báo, `canh-bao`, chỉnh ngưỡng trên web). Chờ Gate 1 như trên |
+| Module 3 — điều khiển đèn, quạt, cửa | Đã viết (gateway, board, web ở `gateway`, test tự động). **Chưa chạy trên board**: chờ Gate 3 và hiệu chỉnh góc servo, tốc độ quạt (`code/KIEM_TRA_GATE_1_3.md`) |
+| Module 4 — nhật ký | Một phần: lịch sử cảm biến từ Adafruit; nhật ký điều khiển/khuôn mặt chờ D5 |
+| Module 5 — giao diện | Web đủ màn hình theo Figma; dashboard Adafruit dựng theo `docs/ADAFRUIT_DASHBOARD.md` |
+| Nhận diện khuôn mặt | Bạn trong nhóm làm (Phase 6). Nhánh này không có model. Cửa luôn mở được bằng nút trên web |
+| Giọng nói tiếng Việt | Chưa có (Phase 7). Lệnh cố định, không dùng LLM |
+| LCD 16x2 | Chỉ có trong bản thử `board/board_main_backup.py` |
 
-## Lỗi thường gặp
+Thứ tự công việc và các quyết định đang mở (D5 nơi lưu nhật ký, D7 nhận diện mặt, D8 giọng nói) nằm ở [docs/ROADMAP.md](docs/ROADMAP.md).
 
-| Dòng in ra | Việc làm |
-| --- | --- |
-| `Khong mo duoc COM11` | OhStem còn kết nối, hoặc `COM_PORT` sai. Ngắt OhStem, sửa `.env`, chạy lại. |
-| `5 giay roi, board khong gui gi qua USB` | Board chưa chạy `yolobit.py`. Nạp lại, lưu, ngắt OhStem, chạy lại gateway. |
-| `Board dang o che do nap` | Rút cáp USB, cắm lại, ngắt OhStem, chạy lại. |
-| `Bo qua dong nay. Can dang T:31.2,H:60,L:44` | Serial đang in câu khác. Kiểm tra đúng file đã dán lên board. |
-| `Khong doc duoc cam bien` | DHT20 chưa ở cổng I2C hoặc ánh sáng chưa ở P0. |
-| `Khong ket noi duoc Adafruit` | Xem mạng, username và Active Key. |
-| `Tai khoan da du 10 feed` | Xóa feed thừa rồi chạy lại. Ngưỡng vẫn có trong `.env`. |
-| Feed không đổi số | Đợi khoảng 15 giây. Số gần như không đổi thì chương trình cố ý không gửi. |
-
-## Tài liệu kit
-
-Lập trình và nạp firmware qua [OhStem App](https://app.ohstem.vn/). Tài liệu kit: [OhStem Education Wiki](https://docs.ohstem.vn/en/latest/tai_lieu_stem/smart_home.html). Giáo trình *AI và IoT cho nhà thông minh* (Yolo:Home) chỉ để làm quen thiết bị. Phạm vi nộp của nhóm là năm module trong `User_Requirements.md` cộng nhận diện mặt và lệnh giọng nói, không phải đủ mọi bài trong sách (bơm, ẩm đất, siêu âm không dùng).
+Tài liệu kit: [OhStem App](https://app.ohstem.vn/) · [OhStem Education Wiki](https://docs.ohstem.vn/en/latest/tai_lieu_stem/smart_home.html). Phạm vi nộp là năm module trong `User_Requirements.md` cộng nhận diện mặt và giọng nói; bơm, ẩm đất, siêu âm không dùng.

@@ -1,4 +1,7 @@
-.env
 __pycache__/
 *.pyc
 .venv/
+
+# Anh va model, neu ban trong nhom them nhan dien sau.
+data/
+models/
