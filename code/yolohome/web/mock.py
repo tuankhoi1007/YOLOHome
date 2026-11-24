@@ -17,6 +17,7 @@ from datetime import datetime
 from yolohome import config
 from yolohome.module1 import Reading
 from yolohome.module2 import Thresholds, evaluate
+from yolohome.voice import VOICE_COMMANDS
 
 # Board gui khoang 2 giay, gateway lay mau 3 giay (READ_INTERVAL). Gia lap cung nhip 3 giay.
 SENSOR_STEP = 3
@@ -42,14 +43,6 @@ LIGHT_COLORS = (
     ("#b8860b", "Vàng cổ điển"),
     ("#9333ea", "Tím"),
     ("#2563eb", "Xanh dương"),
-)
-
-# Bo lenh giong noi co dinh (User_Requirements, khong dung LLM).
-VOICE_COMMANDS = (
-    ("bật đèn", "light", True),
-    ("tắt đèn", "light", False),
-    ("bật quạt", "fan", True),
-    ("tắt quạt", "fan", False),
 )
 
 LOG_TYPES = ("sensor", "control", "alert", "face", "voice", "system")
