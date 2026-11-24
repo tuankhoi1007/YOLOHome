@@ -532,82 +532,92 @@
   white-space: nowrap;
 }
 
-/* Khung camera gia lap (11:806) */
-.camera {
-  position: relative;
+.camera-live {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #141414;
+}
+
+.modal.face-modal {
+  width: min(1040px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+}
+
+.face-pop-body {
   display: grid;
-  place-items: center;
-  height: 364px;
+  grid-template-columns: minmax(0, 3fr) minmax(240px, 2fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.face-pop-camera {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
   overflow: hidden;
   border-radius: var(--radius);
-  background-color: var(--ink);
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
-  background-size: 32px 32px;
-  color: rgba(255, 255, 255, 0.6);
-  font-size: var(--text-xs);
+  background: #141414;
 }
 
-.face-box {
-  position: relative;
+.face-pop-side {
   display: grid;
-  place-items: center;
-  width: 144px;
-  height: 176px;
-  border: 2px solid var(--gold);
+  align-content: start;
+  gap: 16px;
 }
 
-.face-box.is-reject {
-  border-color: var(--danger-dot);
+.face-pop-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.45;
 }
 
-.face-shape {
-  width: 56px;
-  height: 36px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.25);
+.face-steps {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 1.25em;
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.4;
 }
 
-.face-label,
-.face-verdict {
-  position: absolute;
-  left: 6px;
-  right: 6px;
-  padding: 2px 4px;
-  background: rgba(0, 0, 0, 0.7);
-  font-size: 9px;
-  line-height: 13px;
-  text-align: center;
+.face-steps[hidden] {
+  display: none;
 }
 
-.face-label {
-  top: 8px;
-  color: var(--gold);
+.face-pop-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
-.face-verdict {
-  bottom: 8px;
-  left: auto;
-  color: var(--live);
+.face-status {
+  margin: 0;
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.face-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.face-actions .sim-btn {
+  min-height: 44px;
+  font-size: 14px;
   font-weight: 600;
-  text-transform: uppercase;
 }
 
-.face-box.is-reject .face-label,
-.face-box.is-reject .face-verdict {
-  color: #f87171;
-}
-
-.camera-watermark {
-  position: absolute;
-  bottom: 12px;
-  left: 12px;
-  padding: 2px 8px;
-  border-radius: var(--radius-xs);
-  background: rgba(0, 0, 0, 0.5);
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 10px;
+.face-actions .sim-btn:not(.is-primary) {
+  border-color: var(--ink);
+  color: var(--ink);
 }
 
 .ai-notice {
@@ -761,6 +771,12 @@
   }
 
   .grid-ai {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 800px) {
+  .face-pop-body {
     grid-template-columns: minmax(0, 1fr);
   }
 }

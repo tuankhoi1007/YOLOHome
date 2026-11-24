@@ -179,6 +179,58 @@
     </form>
   </dialog>
 
+  <!-- Dang ky: ten + mat khau truoc, webcam mo sau khi mat khau dung -->
+  <dialog class="modal" id="enroll-dialog" aria-labelledby="enroll-dialog-title">
+    <form class="modal-card" id="enroll-form" method="dialog" novalidate>
+      <div class="modal-head">
+        <div>
+          <p class="modal-eyebrow">Đăng ký khuôn mặt</p>
+          <h2 class="modal-title" id="enroll-dialog-title">Thành viên mới</h2>
+        </div>
+        <button class="modal-close" type="button" id="enroll-dialog-close" aria-label="Đóng">
+          <img src="img/icon-x.svg" width="16" height="16" alt="">
+        </button>
+      </div>
+      <p class="field-hint">Tên không dấu. Đúng mật khẩu chủ nhà thì webcam mới mở.</p>
+      <label class="field">
+        <span class="field-label">Tên</span>
+        <span class="field-input"><input id="enroll-name" name="name" type="text" maxlength="32" autocomplete="off" required placeholder="Ví dụ Minh"></span>
+      </label>
+      <label class="field">
+        <span class="field-label">Mật khẩu chủ nhà</span>
+        <span class="field-input"><input id="enroll-password" name="password" type="password" autocomplete="current-password" required></span>
+      </label>
+      <p class="form-error" id="enroll-error" role="alert" hidden></p>
+      <div class="modal-actions">
+        <button class="btn-outline" type="button" id="enroll-cancel">Hủy bỏ</button>
+        <button class="btn-gold" type="submit" id="enroll-start">Mở webcam</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Webcam quet / dang ky: cua so rieng, dung ti le 4:3 de thay het chu huong dan tren hinh -->
+  <dialog class="modal face-modal" id="face-dialog" aria-labelledby="face-dialog-title">
+    <div class="modal-card face-pop">
+      <div class="modal-head">
+        <div>
+          <p class="modal-eyebrow" id="face-dialog-kicker">Webcam</p>
+          <h2 class="modal-title" id="face-dialog-title">Khuôn mặt</h2>
+        </div>
+        <button class="modal-close" type="button" id="face-dialog-close" aria-label="Đóng">
+          <img src="img/icon-x.svg" width="16" height="16" alt="">
+        </button>
+      </div>
+      <div class="face-pop-body">
+        <div class="face-pop-camera" id="face-dialog-camera"></div>
+        <div class="face-pop-side">
+          <p class="face-pop-note" id="face-dialog-note"></p>
+          <ol class="face-steps" id="face-dialog-steps"></ol>
+          <div class="face-pop-actions" id="face-dialog-actions"></div>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
   <!-- Toast canh bao (11:1014) -->
   <div class="toasts" id="toasts" aria-live="assertive"></div>
 

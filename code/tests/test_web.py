@@ -107,6 +107,12 @@ class SessionsTest(unittest.TestCase):
         clock.advance(web_server.SESSION_SECONDS + 1)
         self.assertFalse(sessions.check(token))
 
+    def test_verify_password_does_not_open_a_session(self):
+        sessions = web_server.Sessions("secret", clock=FakeClock())
+        self.assertIsNone(sessions.verify("secret"))
+        self.assertEqual(sessions.tokens, {})
+        self.assertEqual(sessions.verify("nope"), "wrong")
+
     def test_logout(self):
         sessions = web_server.Sessions("secret", clock=FakeClock())
         token, _ = sessions.login("secret")
@@ -456,6 +462,16 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(json.loads(data)["requested"], {"on": True, "speed": 40})
         status, _, _ = self.call("POST", "/api/devices/fan", {"speed": 400}, cookie=cookie)
         self.assertEqual(status, 400)
+        status, _, data = self.call("POST", "/api/face/scan", {}, cookie=cookie)
+        self.assertEqual(status, 503)
+        self.assertIn("gateway", json.loads(data)["error"])
+        status, _, data = self.call("POST", "/api/face/enroll", {"name": "Minh", "password": "nope"}, cookie=cookie)
+        self.assertEqual(status, 401)
+        status, _, data = self.call("POST", "/api/face/enroll", {"name": "Minh Nguyễn", "password": "secret"}, cookie=cookie)
+        self.assertEqual(status, 400)
+        status, _, data = self.call("POST", "/api/face/enroll", {"name": "Minh", "password": "secret"}, cookie=cookie)
+        self.assertEqual(status, 503)
+        self.assertIn("gateway", json.loads(data)["error"])
 
     def test_post_needs_json_content_type(self):
         cookie = self.login()

@@ -6,7 +6,7 @@ moi lenh di qua may chu nay roi moi toi Adafruit (D6). Dang nhap bang mot mat kh
 chung WEB_PASSWORD trong .env (D10).
 
 WEB_DATA=mock: du lieu gia lap (mock.py). WEB_DATA=live: doc feed Adafruit (live.py).
-WEB_DATA=gateway: chay luon Module 1 + 2 trong web (gateway.py trong goi nay), mot chuong trinh cho demo.
+WEB_DATA=gateway: chay luon Module 1 + 2 + 3 va nut quet mat trong web, mot chuong trinh cho demo.
 
 Chay tu thu muc code:  python -m yolohome   roi mo http://127.0.0.1:8000 tren laptop
 """
@@ -93,6 +93,20 @@ class Sessions:
             self.tokens[token] = now + SESSION_SECONDS
             return token, None
 
+    def verify(self, password):
+        """Dung mat khau chu nha hay khong, khong tao phien moi. None, 'wrong' hoac 'locked'."""
+        with self.lock:
+            now = self.clock()
+            self.fails = [at for at in self.fails if now - at < FAIL_WINDOW]
+            if len(self.fails) >= MAX_FAILS:
+                return "locked"
+            given = str(password).encode("utf-8")
+            right = self.password.encode("utf-8")
+            if not self.password or not hmac.compare_digest(given, right):
+                self.fails.append(now)
+                return "wrong"
+            return None
+
     def check(self, token):
         if not token:
             return False
@@ -174,6 +188,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._events()
             elif path == "/api/log":
                 self._log(parse_qs(url.query))
+            elif path == "/api/face/video":
+                self._video()
             else:
                 self._json(404, {"error": "Không có API này"})
             return
@@ -210,6 +226,23 @@ class Handler(BaseHTTPRequestHandler):
             elif path.startswith("/api/sim/"):
                 kind = path[len("/api/sim/"):]
                 self._json(200, app.home.simulate(kind))
+            elif path == "/api/face/scan":
+                self._json(200, app.home.scan_face())
+            elif path == "/api/face/enroll":
+                problem = app.sessions.verify(body.get("password", ""))
+                if problem == "locked":
+                    self._json(429, {"error": "Sai mật khẩu quá nhiều lần. Đợi một phút rồi thử lại."})
+                elif problem:
+                    self._json(401, {"error": "Sai mật khẩu chủ nhà."})
+                else:
+                    from yolohome.face.enroll import check_name
+
+                    if check_name(body.get("name", "")) is None:
+                        self._json(400, {"error": "Tên chỉ dùng chữ không dấu, số, _ hoặc -, tối đa 32 ký tự. Ví dụ: Minh."})
+                    else:
+                        self._json(202, app.home.enroll_face(body.get("name", "")))
+            elif path == "/api/face/control":
+                self._json(200, app.home.face_action(body.get("action", "")))
             else:
                 self._json(404, {"error": "Không có API này"})
         except CommandError as exc:
@@ -250,6 +283,32 @@ class Handler(BaseHTTPRequestHandler):
             self._json(exc.status, {"error": exc.message})
             return
         self._json(200, data)
+
+    def _video(self):
+        """MJPEG: trinh duyet dat vao the img, cookie dang nhap di cung request."""
+        getter = getattr(self.server.app.home, "face_frames", None)
+        hub = getter() if getter is not None else None
+        if hub is None:
+            self._json(404, {"error": "Không có hình webcam"})
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", "multipart/x-mixed-replace; boundary=frame")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.end_headers()
+        version = 0
+        try:
+            while True:
+                version, jpeg = hub.wait_jpeg(version, 1.0)
+                if not jpeg:
+                    continue
+                header = b"--frame\r\nContent-Type: image/jpeg\r\nContent-Length: %d\r\n\r\n" % len(jpeg)
+                self.wfile.write(header)
+                self.wfile.write(jpeg)
+                self.wfile.write(b"\r\n")
+                self.wfile.flush()
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError, OSError):
+            return
 
     def _events(self):
         app = self.server.app

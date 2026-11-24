@@ -26,6 +26,9 @@ class FakeFace:
         self.results = queue.Queue()
         self.busy = False
 
+    def is_busy(self):
+        return self.busy
+
     def request_scan(self):
         if self.busy:
             return False
@@ -40,9 +43,13 @@ class FakeFace:
 class FaceListener:
     def __init__(self):
         self.faces = []
+        self.enrolls = []
 
     def on_face(self, result):
         self.faces.append(result)
+
+    def on_enroll(self, result):
+        self.enrolls.append(result)
 
 
 def ok_result(name="Minh"):
@@ -73,15 +80,23 @@ class DeciderTest(unittest.TestCase):
         self.assertFalse(result.ok)
         self.assertTrue(result.detail.startswith("Không nhận ra"))
 
+    def test_default_threshold_rejects_a_score_of_0_59(self):
+        d = Decider(engine.DEFAULT_THRESHOLD, window=7, votes=5, liveness=False)
+        for _ in range(7):
+            self.assertIsNone(d.add("Minh", 0.59, 0.0))
+        result = d.failure()
+        self.assertFalse(result.ok)
+        self.assertEqual(result.as_dict()["threshold"], 0.7)
+
     def test_no_face_at_all(self):
         result = Decider(0.5, liveness=False).failure()
-        self.assertEqual(result.note, "khong thay dung mot khuon mat")
+        self.assertEqual(result.note, "khong thay khuon mat")
 
     def test_liveness_needs_a_head_turn(self):
         d = Decider(0.5, window=7, votes=5, liveness=True, spread=0.3)
         for _ in range(6):
             self.assertIsNone(d.add("Minh", 0.8, 0.0))  # anh in: khong quay
-        self.assertEqual(d.failure().note, "khong qua kiem tra quay dau")
+        self.assertEqual(d.failure().note, "hay quay dau nhe")
         self.assertEqual(d.add("Minh", 0.8, 0.35), "Minh")
 
     def test_result_dict_hides_name_on_failure(self):
@@ -102,6 +117,51 @@ class GatewayFaceTest(unittest.TestCase):
         self.assertIn(b"DOOR:OPEN\n", gw.ser.written)
         self.assertEqual(listener.faces[-1]["name"], "Minh")
         self.assertTrue(listener.faces[-1]["ok"])
+
+    def test_enroll_reports_result_without_opening_the_camera(self):
+        listener = FaceListener()
+        gw = make_gateway([], listener)
+        gw.enable_face(FakeFace())
+        status = gw.enroll_face("Minh", runner=lambda name: {"ok": True, "name": name, "saved": 12, "detail": "Đã đăng ký Minh"})
+        self.assertEqual(status, "started")
+        self.assertFalse(gw._enrolling.is_set())
+        self.assertEqual(listener.enrolls[-1]["name"], "Minh")
+        gw._enrolling.set()
+        self.assertEqual(gw.enroll_face("An"), "busy")
+        self.assertEqual(gw.scan_face("test"), "busy")
+
+    def test_web_frame_and_skip_button(self):
+        from yolohome.gateway import EnrollControl, FrameHub
+
+        hub = FrameHub()
+        hub.push_jpeg(b"abc")
+        version, data = hub.wait_jpeg(0, 0.05)
+        self.assertEqual(data, b"abc")
+        self.assertGreater(version, 0)
+        gw = make_gateway([])
+        gw._enrolling.set()
+        gw._control = EnrollControl()
+        self.assertEqual(gw.face_action("skip"), "ok")
+        self.assertTrue(gw._control.skip.is_set())
+        gw._enrolling.clear()
+        self.assertEqual(gw.face_action("cancel"), "idle")
+
+    def test_enroll_name_rejects_spaces_and_marks(self):
+        from yolohome.face.enroll import check_name
+
+        self.assertEqual(check_name(" Minh "), "Minh")
+        self.assertIsNone(check_name("Minh Nguyễn"))
+        self.assertIsNone(check_name(""))
+
+    def test_match_still_reaches_the_listener_without_a_board(self):
+        listener = FaceListener()
+        gw = make_gateway([], listener)
+        gw.ser = None
+        gw.enable_face(FakeFace())
+        gw.face.finish(ok_result())
+        gw.step()
+        self.assertTrue(listener.faces[-1]["ok"])
+        self.assertIn("mạch chưa kết nối", listener.faces[-1]["detail"])
 
     def test_wrong_face_keeps_door_closed(self):
         listener = FaceListener()
@@ -158,6 +218,26 @@ class GalleryAndEvaluateTest(unittest.TestCase):
             loaded.save()
             self.assertEqual(list(engine.Gallery(path).people), ["Minh"])
 
+    def test_glasses_and_bare_face_are_scored_apart(self):
+        bare = self.centers["Minh"]
+        axis = engine.unit(self.rng.normal(size=128))
+        axis = engine.unit(axis - bare * float(axis @ bare))
+        glasses = engine.unit(0.85 * bare + (1 - 0.85 ** 2) ** 0.5 * axis)
+        near = lambda center: engine.unit(center + self.rng.normal(scale=0.02, size=128))
+        samples = [near(bare) for _ in range(8)] + [near(glasses) for _ in range(5)]
+        tags = ["face"] * 8 + ["glasses"] * 5
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "gallery.npz"
+            gallery = engine.Gallery(path)
+            gallery.set_person("Minh", samples, tags)
+            gallery.save()
+            loaded = engine.Gallery(path)
+            probe = near(glasses)
+            _, score = loaded.best(probe)
+            mixed = float(engine.unit(loaded.people["Minh"].mean(axis=0)) @ engine.unit(probe))
+            self.assertGreater(score, mixed + 0.03)
+            self.assertEqual(loaded.tags["Minh"].count("glasses"), 5)
+
     def test_threshold_sits_above_every_stranger(self):
         from yolohome.face import evaluate
 
@@ -194,7 +274,7 @@ class EnrollStepTest(unittest.TestCase):
 
     def test_plan_splits_25_photos(self):
         counts = [n for _, _, n in self.enroll.plan(25)]
-        self.assertEqual(counts, [8, 6, 6, 5])
+        self.assertEqual(counts, [7, 5, 5, 4, 4])
 
     def test_not_turning_is_never_accepted_as_a_side_pose(self):
         check = self.enroll.StepCheck()
@@ -207,6 +287,11 @@ class EnrollStepTest(unittest.TestCase):
         check.accepted("side1", 0.25, 150)
         self.assertEqual(check.check("side2", 0.25, 150), (False, "Quay sang BEN KIA"))
         self.assertTrue(check.check("side2", -0.25, 150)[0])
+
+    def test_glasses_step_needs_a_straight_look(self):
+        check = self.enroll.StepCheck()
+        self.assertEqual(check.check("glasses", 0.2, 150), (False, "Nhin thang hon"))
+        self.assertTrue(check.check("glasses", 0.0, 150)[0])
 
     def test_far_step_needs_a_smaller_face(self):
         check = self.enroll.StepCheck()

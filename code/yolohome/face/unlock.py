@@ -30,16 +30,20 @@ class ScanResult:
     name: nguoi duoc mo cua; khi that bai la nguoi giong nhat (chi de tham khao) hoac None.
     """
 
-    def __init__(self, ok, name, score, detail, note):
+    def __init__(self, ok, name, score, detail, note, threshold=None):
         self.ok = ok
         self.name = name
         self.score = score
         self.detail = detail
         self.note = note
+        self.threshold = threshold
 
     def as_dict(self):
-        return {"ok": self.ok, "name": self.name if self.ok else None,
+        data = {"ok": self.ok, "name": self.name if self.ok else None,
                 "score": round(float(self.score), 3), "detail": self.detail}
+        if self.threshold is not None:
+            data["threshold"] = round(float(self.threshold), 3)
+        return data
 
     def __repr__(self):
         return "ScanResult(%s, %s, %.3f, %s)" % (self.ok, self.name, self.score, self.note)
@@ -79,37 +83,39 @@ class Decider:
         return len(yaws) >= 2 and (max(yaws) - min(yaws)) >= self.spread
 
     def success(self, name):
-        count = self.window.count(name)
-        return ScanResult(True, name, self.best_score,
-                          "Khớp %d/%d khung" % (count, self.window.maxlen),
-                          "khop %d/%d khung" % (count, self.window.maxlen))
+        return ScanResult(True, name, self.best_score, "Cửa đang mở.", "cua dang mo", self.threshold)
 
     def failure(self):
         if self.frames_with_face == 0:
-            return ScanResult(False, None, 0.0, "Không thấy đúng một khuôn mặt",
-                              "khong thay dung mot khuon mat")
+            return ScanResult(False, None, 0.0, "Không thấy khuôn mặt. Đưa mặt vào giữa webcam.",
+                              "khong thay khuon mat", self.threshold)
         names = [n for n in self.window if n is not None]
         top = max(names.count(n) for n in set(names)) if names else 0
         if self.best_score < self.threshold:
             return ScanResult(False, self.best_name, self.best_score,
-                              "Không nhận ra (điểm %.2f, ngưỡng %.2f)" % (self.best_score, self.threshold),
-                              "khong nhan ra (diem %.2f, nguong %.2f)" % (self.best_score, self.threshold))
+                              "Không nhận ra. Nhìn thẳng rồi thử lại.",
+                              "khong nhan ra", self.threshold)
         if self.liveness and top >= self.votes:
             return ScanResult(False, self.best_name, self.best_score,
-                              "Không qua kiểm tra quay đầu", "khong qua kiem tra quay dau")
+                              "Hãy quay đầu nhẹ sang hai bên.", "hay quay dau nhe",
+                              self.threshold)
         return ScanResult(False, self.best_name, self.best_score,
-                          "Chưa đủ %d/%d khung khớp" % (self.votes, self.window.maxlen),
-                          "chua du %d/%d khung khop" % (self.votes, self.window.maxlen))
+                          "Chưa nhận ra. Nhìn thẳng rồi thử lại.",
+                          "chua nhan ra", self.threshold)
 
 
 def _fail(detail, note):
     return ScanResult(False, None, 0.0, detail, note)
 
 
-def scan(face_engine, seconds=None, preview=None, camera=None):
-    """Mot lan quet. Tra ve ScanResult."""
+def scan(face_engine, seconds=None, preview=None, camera=None, viewer=None):
+    """Mot lan quet. Tra ve ScanResult.
+
+    viewer(frame) nhan anh da lat guong de dua len web. Co viewer thi khong mo cua so OpenCV.
+    """
     seconds = config.FACE_SCAN_SECONDS if seconds is None else seconds
     preview = config.FACE_PREVIEW if preview is None else preview
+    show_window = preview and viewer is None
     gallery = Gallery()  # doc lai moi lan: dang ky them luc gateway dang chay van an
     if not gallery.people:
         return _fail("Chưa ai đăng ký khuôn mặt", "chua ai dang ky khuon mat")
@@ -128,7 +134,7 @@ def scan(face_engine, seconds=None, preview=None, camera=None):
                 result = _fail("Webcam không trả ảnh", "webcam khong tra anh")
                 break
             faces = face_engine.detect(frame)
-            view = frame.copy() if preview else None
+            view = frame.copy() if (show_window or viewer is not None) else None
             if len(faces) == 1:
                 face = faces[0]
                 vec = face_engine.embed_aligned(face_engine.align(frame, face))
@@ -136,7 +142,7 @@ def scan(face_engine, seconds=None, preview=None, camera=None):
                 winner = decider.add(name, score, yaw_ratio(face))
                 if view is not None:
                     good = score >= decider.threshold
-                    label = "%s %.2f" % (name if good else "?", score)
+                    label = name if good else "Chua khop"
                     draw_face(view, face, label, (0, 200, 0) if good else (0, 0, 255))
                 if winner is not None:
                     result = decider.success(winner)
@@ -146,12 +152,15 @@ def scan(face_engine, seconds=None, preview=None, camera=None):
                 left = max(0.0, end - time.time())
                 cv2.putText(view, "%s  %.0fs" % (hint, left), (10, 25),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
-                cv2.imshow("Quet mat mo cua", view)
-                cv2.waitKey(1)
+                if viewer is not None:
+                    viewer(cv2.flip(view, 1))
+                elif show_window:
+                    cv2.imshow("Quet mat mo cua", view)
+                    cv2.waitKey(1)
     finally:
         if camera is None:
             cap.release()
-        if preview:
+        if show_window:
             try:
                 cv2.destroyWindow("Quet mat mo cua")
                 cv2.waitKey(1)
@@ -172,12 +181,16 @@ class FaceUnlock:
         self.results = queue.Queue()
         self._want = threading.Event()
         self._busy = threading.Event()
+        self.viewer = None
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
 
+    def is_busy(self):
+        return self._busy.is_set() or self._want.is_set()
+
     def request_scan(self):
         """False neu dang quet do."""
-        if self._busy.is_set() or self._want.is_set():
+        if self.is_busy():
             return False
         self._want.set()
         return True
@@ -188,7 +201,7 @@ class FaceUnlock:
             self._busy.set()
             self._want.clear()
             try:
-                result = scan(self.engine)
+                result = scan(self.engine, viewer=self.viewer)
             except Exception as exc:
                 result = _fail("Lỗi khi quét", "loi khi quet: " + str(exc))
             self._busy.clear()

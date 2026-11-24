@@ -33,7 +33,8 @@ async function request(method, path, body) {
   } catch (err) {
     data = null;
   }
-  if (response.status === 401 && path !== "/api/login") {
+  // Sai mat khau luc dang ky khong huy phien dang nhap: cua so dang ky tu bao loi.
+  if (response.status === 401 && path !== "/api/login" && path !== "/api/face/enroll") {
     goToLogin();
   }
   if (!response.ok) {
@@ -52,9 +53,12 @@ export const api = {
   // Tra ve ngay khi lenh da gui; xac nhan cua thiet bi den sau qua su kien "device"
   command: (device, body) => request("POST", "/api/devices/" + device, body),
   simulate: (kind) => request("POST", "/api/sim/" + kind, {}),
+  scanFace: () => request("POST", "/api/face/scan", {}),
+  enrollFace: (name, password) => request("POST", "/api/face/enroll", { name: name, password: password }),
+  faceControl: (action) => request("POST", "/api/face/control", { action: action }),
 };
 
-const EVENT_KINDS = ["sensors", "alert", "thresholds", "device", "gateway", "face", "voice", "log"];
+const EVENT_KINDS = ["sensors", "alert", "thresholds", "device", "gateway", "face", "enroll", "voice", "log"];
 
 // Nghe su kien SSE. handlers co the co: sensors, alert, ..., open (vua noi, nen tai lai api.state()),
 // lost (mat ket noi toi may chu web). Tra ve ham de dung nghe.

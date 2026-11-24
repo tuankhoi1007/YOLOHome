@@ -32,6 +32,43 @@ from yolohome.module1 import (
 from yolohome.module2 import AlertPublisher, Thresholds, evaluate
 
 
+class FrameHub:
+    """Anh webcam moi nhat, de trang web keo bang MJPEG. Khong mo cua so OpenCV."""
+
+    def __init__(self):
+        self._jpeg = None
+        self._version = 0
+        self._event = threading.Condition()
+
+    def push_bgr(self, frame):
+        import cv2
+
+        ok, buf = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 70])
+        if ok:
+            self.push_jpeg(buf.tobytes())
+
+    def push_jpeg(self, data):
+        with self._event:
+            self._jpeg = data
+            self._version += 1
+            self._event.notify_all()
+
+    def wait_jpeg(self, version, timeout=1.0):
+        """Doi anh moi hon version. Tra ve (version, jpeg) ; jpeg la None neu het gio."""
+        with self._event:
+            if self._version == version:
+                self._event.wait(timeout)
+            return self._version, self._jpeg
+
+
+class EnrollControl:
+    """Nut Bo qua buoc / Huy tren web, thay phim S / Q cua cua so OpenCV."""
+
+    def __init__(self):
+        self.skip = threading.Event()
+        self.cancel = threading.Event()
+
+
 class Gateway:
     """Vong Module 1 + 2.
 
@@ -62,6 +99,9 @@ class Gateway:
         self.next_sample = 0.0
         # Nhan dien khuon mat: None khi tat hoac thieu opencv / mo hinh
         self.face = None
+        self.frames = FrameHub()
+        self._enrolling = threading.Event()
+        self._control = None
 
     def _tell(self, name, *args):
         if self.listener is None:
@@ -93,7 +133,7 @@ class Gateway:
             "| dieu khien:",
             ", ".join(config.CONTROL_FEEDS),
         )
-        self.ser = open_serial()
+        self.ser = open_serial(exit_on_fail=False)
         self.feed_keys = config.ensure_feeds(config.ALL_FEEDS)
         self.limits.load_cloud()
         self._tell("on_thresholds", self.limits)
@@ -112,7 +152,13 @@ class Gateway:
         def on_message(client, userdata, msg):
             self.incoming.put((msg.topic, msg.payload))
 
-        self.client = config.connect_mqtt(on_connect, on_message)
+        try:
+            self.client = config.connect_mqtt(on_connect, on_message)
+        except SystemExit:
+            print("Khong noi duoc Adafruit. Web van mo de thu nhan dien khuon mat.")
+            self.client = None
+            self.enable_face()
+            return
         old_disconnect = self.client.on_disconnect
 
         def on_disconnect(client, userdata, flags, reason_code, properties):
@@ -139,6 +185,7 @@ class Gateway:
             from yolohome.face.unlock import FaceUnlock
 
             self.face = FaceUnlock()
+            self.face.viewer = self.frames.push_bgr
         except Exception as exc:
             print("Nhan dien khuon mat: tat -", exc)
             return False
@@ -149,7 +196,7 @@ class Gateway:
         """Bat dau mot lan quet mat. Goi duoc tu luong khac (web). Tra ve 'off', 'busy' hoac 'started'."""
         if self.face is None:
             return "off"
-        if not self.face.request_scan():
+        if self._enrolling.is_set() or not self.face.request_scan():
             return "busy"
         print("Bat dau quet mat (" + source + ")")
         return "started"
@@ -164,11 +211,56 @@ class Gateway:
             except queue.Empty:
                 return
             if result.ok:
-                print("Mat dung:", result.name, "- diem %.2f," % result.score, result.note, "-> mo cua")
-                self.devices.request("cua", "OPEN", "Khuôn mặt")
+                print("Nhan dung:", result.name, "->", result.note)
+                sent = self.devices.request("cua", "OPEN", "Khuôn mặt")
+                if sent == "failed":
+                    result.detail = "Đã nhận " + (result.name or "thành viên") + ", nhưng mạch chưa kết nối nên cửa không mở."
             else:
                 print("Khong mo cua:", result.note)
             self._tell("on_face", result.as_dict())
+
+    def enroll_face(self, name, runner=None):
+        """Bat dau dang ky. runner chi dung khi kiem thu. Tra ve 'off', 'busy' hoac 'started'."""
+        if self.face is None:
+            return "off"
+        if self._enrolling.is_set() or self.face.is_busy():
+            return "busy"
+        self._control = EnrollControl()
+        self._enrolling.set()
+        if runner is not None:
+            self._enroll(name, runner)
+            return "started"
+        threading.Thread(target=self._enroll, args=(name, None), daemon=True).start()
+        return "started"
+
+    def _enroll(self, name, runner):
+        try:
+            if runner is None:
+                from yolohome.face.enroll import register
+
+                result = register(name, viewer=self.frames.push_bgr, control=self._control)
+            else:
+                result = runner(name)
+        except Exception as exc:
+            print("Dang ky loi:", exc)
+            result = {"ok": False, "name": name, "saved": 0, "detail": "Không đăng ký được."}
+        finally:
+            self._control = None
+            self._enrolling.clear()
+        self._tell("on_enroll", result)
+
+    def face_action(self, action):
+        """skip hoac cancel cho phien dang ky dang chay. Tra ve 'ok', 'idle' hoac 'bad'."""
+        control = self._control
+        if control is None or not self._enrolling.is_set():
+            return "idle"
+        if action == "skip":
+            control.skip.set()
+            return "ok"
+        if action == "cancel":
+            control.cancel.set()
+            return "ok"
+        return "bad"
 
     def set_threshold(self, feed, value):
         """Doi nguong tu luong khac (web). Di cung duong voi tin MQTT tu feed nguong-*."""
@@ -246,6 +338,9 @@ class Gateway:
         self.drain_incoming()
         self.drain_face()
         self.devices.expire()
+        if self.ser is None:
+            time.sleep(0.05)
+            return
         if self.wait_for_sample():
             return
         line = self.ser.readline().decode("utf-8", errors="ignore").strip()

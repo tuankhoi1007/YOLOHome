@@ -67,6 +67,7 @@ class LiveHome:
         self.next_sensor_log = now
         self.entries = []
         self.next_id = 1
+        self.last_face = None
         self.client = None
         self.publisher = None
         self._add_log(now, "system", "Web", "Mở web, dữ liệu thật (" + self.MODE + ")", "Khởi tạo", "neutral")
@@ -159,7 +160,7 @@ class LiveHome:
                 "thresholds": self._thresholds_view(),
                 "alert": self._alert_view(),
                 "devices": None,
-                "face": None,
+                "face": self.last_face,
                 "voice": None,
                 "colors": [],
                 "voice_commands": [],
@@ -219,6 +220,15 @@ class LiveHome:
     def simulate(self, kind):
         raise CommandError(404, "Nút mô phỏng chỉ có khi WEB_DATA=mock.")
 
+    def scan_face(self, source="Giao diện web"):
+        raise CommandError(503, "Nút quét mặt chỉ có khi chạy web với WEB_DATA=gateway.")
+
+    def enroll_face(self, name):
+        raise CommandError(503, "Đăng ký khuôn mặt chỉ có khi chạy web với WEB_DATA=gateway.")
+
+    def face_action(self, action):
+        raise CommandError(503, "Điều khiển webcam chỉ có khi chạy web với WEB_DATA=gateway.")
+
     # ---------- nhip ----------
 
     def tick(self):
@@ -235,7 +245,37 @@ class LiveHome:
                     self._take(now, data[0], data[1])
                 elif kind == "device":
                     self._take_device(now, *data)
+                elif kind == "face":
+                    self._take_face(now, data)
+                elif kind == "enroll":
+                    self._take_enroll(now, data)
             self._check_online(now)
+
+    def _take_face(self, now, result):
+        """Ket qua quet mat. Cua mo hay giu dong do gateway quyet, truoc khi goi toi day."""
+        shown = {
+            "ok": bool(result.get("ok")),
+            "name": result.get("name"),
+            "score": result.get("score"),
+            "detail": result.get("detail") or "",
+            "at": now,
+        }
+        self.last_face = shown
+        if shown["ok"]:
+            text = shown["detail"] or ("Nhận đúng " + (shown["name"] or "thành viên") + ".")
+            status, tone = "Đúng", "ok"
+        else:
+            text = shown["detail"] or "Không nhận diện được"
+            status, tone = "Không khớp", "danger"
+        self._add_log(now, "face", "Webcam laptop", text, status, tone)
+        self.emit("face", shown)
+
+    def _take_enroll(self, now, result):
+        """Ket qua dang ky khuon mat. Khong mo cua."""
+        ok = bool(result.get("ok"))
+        detail = result.get("detail") or ("Đã đăng ký" if ok else "Không lưu mẫu")
+        self._add_log(now, "face", "Đăng ký khuôn mặt", detail, "Đã lưu" if ok else "Không lưu", "ok" if ok else "danger")
+        self.emit("enroll", result)
 
     def _take_device(self, now, device, value, ok, source, reason):
         """Ket qua lenh den/quat/cua. Chi GatewayHome co thiet bi that."""

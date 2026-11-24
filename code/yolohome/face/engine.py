@@ -36,7 +36,8 @@ THRESHOLD_FILE = FACE_DIR / "threshold.json"
 SFACE_LFW_THRESHOLD = 0.363
 # Nguong khi CHUA chay evaluate. Cao hon 0.363 vi day la cua: nhan nham nguoi la te hon
 # tu choi nham thanh vien (thanh vien van mo cua bang nut tren web).
-DEFAULT_THRESHOLD = 0.5
+# 0.50 van nhan nguoi la co diem 0.59 (ban cung lop, cung webcam). 0.70 nam tren muc do.
+DEFAULT_THRESHOLD = 0.7
 
 DETECT_MODEL = "face_detection_yunet_2023mar.onnx"
 RECOG_MODEL = "face_recognition_sface_2021dec.onnx"
@@ -149,51 +150,84 @@ class FaceEngine:
         return self.embed_aligned(self.align(img, faces[0]))
 
 
+def _modes(vectors, tags):
+    """Mot mau trung binh, hoac hai mau neu co du anh deo kinh va anh khong deo.
+
+    Mot mau tron lan hai kieu se keo diem moi kieu xuong. Lay diem cao hon trong hai mau
+    giu diem nguoi dung, trong khi nguoi la khong sat ca hai mau nen diem chi nhich len mot chut.
+    """
+    center = unit(vectors.mean(axis=0))
+    if not tags or tags.count("glasses") < 3 or tags.count("face") < 3:
+        return [center]
+    bare = unit(vectors[[i for i, tag in enumerate(tags) if tag != "glasses"]].mean(axis=0))
+    glasses = unit(vectors[[i for i, tag in enumerate(tags) if tag == "glasses"]].mean(axis=0))
+    if float(bare @ glasses) > 0.98:
+        return [center]
+    return [bare, glasses]
+
+
 class Gallery:
     """Kho mau: moi thanh vien nhieu vector, luu o data/faces/gallery.npz.
 
-    So khop dung MOT mau trung binh moi nguoi (cong cac vector roi chuan hoa). Mau trung binh
-    it nhieu hon tung anh le, nen diem nguoi la thap hon so voi lay diem cao nhat trong nhieu anh.
+    So khop dung mau trung binh (it nhieu hon tung anh le). Neu dang ky ca luc deo kinh
+    va luc khong deo, giu hai mau va lay diem cao hon. Anh cu khong co nhan van dung mot mau.
     """
 
     def __init__(self, path=None):
         self.path = path or GALLERY
         self.people = {}
-        self._centroids = None
+        self.tags = {}
+        self._modes = None
         if self.path.is_file():
             data = np.load(self.path, allow_pickle=False)
             names = data["names"]
             vecs = data["vectors"]
+            saved_tags = data["tags"].tolist() if "tags" in data.files else None
             for name in sorted(set(names.tolist())):
-                self.people[name] = vecs[names == name]
+                chosen = names == name
+                self.people[name] = vecs[chosen]
+                if saved_tags is None:
+                    self.tags[name] = ["face"] * int(chosen.sum())
+                else:
+                    self.tags[name] = [saved_tags[i] for i, keep in enumerate(chosen) if keep]
 
-    def set_person(self, name, vectors):
+    def set_person(self, name, vectors, tags=None):
         self.people[name] = np.stack([unit(v) for v in vectors])
-        self._centroids = None
+        labels = list(tags) if tags is not None else ["face"] * len(vectors)
+        if len(labels) != len(vectors):
+            labels = ["face"] * len(vectors)
+        self.tags[name] = labels
+        self._modes = None
 
     def remove(self, name):
-        self._centroids = None
+        self._modes = None
+        self.tags.pop(name, None)
         return self.people.pop(name, None) is not None
 
     def save(self):
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        names, vecs = [], []
+        names, vecs, tags = [], [], []
         for name, arr in self.people.items():
+            labels = self.tags.get(name) or ["face"] * len(arr)
             names += [name] * len(arr)
             vecs.append(arr)
+            tags += labels
         if vecs:
-            np.savez(self.path, names=np.array(names), vectors=np.concatenate(vecs))
+            np.savez(self.path, names=np.array(names), vectors=np.concatenate(vecs), tags=np.array(tags))
         elif self.path.exists():
             self.path.unlink()
 
-    def centroids(self):
-        if self._centroids is None:
-            self._centroids = {name: unit(arr.mean(axis=0)) for name, arr in self.people.items()}
-        return self._centroids
+    def modes(self):
+        if self._modes is None:
+            self._modes = {
+                name: _modes(arr, self.tags.get(name))
+                for name, arr in self.people.items()
+            }
+        return self._modes
 
     def scores(self, vec):
-        """Diem cua tung nguoi = cosine giua vector moi va mau trung binh cua nguoi do."""
-        return {name: float(center @ vec) for name, center in self.centroids().items()}
+        """Diem cua tung nguoi = cosine cao nhat voi mau cua nguoi do (mot hoac hai mau)."""
+        return {name: max(float(mode @ vec) for mode in modes) for name, modes in self.modes().items()}
 
     def best(self, vec):
         """(ten, diem) cua nguoi giong nhat, hoac (None, 0) neu kho rong."""

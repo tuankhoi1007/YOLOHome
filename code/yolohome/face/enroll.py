@@ -13,9 +13,10 @@ Chup theo tung buoc tu the. Chuong trinh do goc quay dau tu 5 diem moc cua YuNet
   2. Quay dau mot ben      0.15 <= |yaw| <= 0.45
   3. Quay dau ben kia      nhu tren, nguoc dau voi buoc 2
   4. Lui xa, nhin thang    mat nho lai >= 15% so voi buoc 1
+  5. Doi kinh, nhin thang  nhu buoc 1. Khong co kinh thi bam S / Bo qua buoc
 Khong dung tu the thi KHONG chup va khong sang buoc. Moi buoc toi da FACE_STEP_TIMEOUT giay,
 het gio thi bo buoc do va bao thieu goc. Buoc 1 bat buoc; tong it nhat 10 anh moi luu.
-Phim: S bo qua buoc dang lam, Q huy.
+Buoc 5 khong bat buoc. Phim: S bo qua buoc dang lam, Q huy.
 
 Nen chup anh test vao buoi KHAC luc dang ky, anh sang phong demo, cach webcam 0,5-1 m.
 Anh luu la mat da can chinh 112x112 trong data/faces/enroll/<ten> hoac data/faces/test/<ten>.
@@ -29,7 +30,7 @@ import time
 
 from yolohome import config
 from yolohome.face import engine
-from yolohome.face.engine import FACE_DIR, FaceEngine, Gallery, cv2, sharpness, yaw_ratio
+from yolohome.face.engine import FACE_DIR, FaceEngine, Gallery, cv2, open_camera, sharpness, yaw_ratio
 
 STRAIGHT = 0.08
 SIDE_MIN = 0.15
@@ -43,19 +44,20 @@ STEPS = (
     ("side1", "Quay dau sang TRAI mot chut", 6),
     ("side2", "Quay dau sang PHAI mot chut", 6),
     ("far", "Lui ra xa mot chut, nhin thang", 5),
+    ("glasses", "Doi kinh: deo vao hoac thao ra, nhin thang", 5),
 )
 
 
-def safe_name(name):
-    name = name.strip()
-    if not re.fullmatch(r"[A-Za-z0-9_\-]{1,32}", name):
-        print("Ten chi dung chu khong dau, so, _ hoac -, toi da 32 ky tu. Vi du: Minh, Binh_2")
-        sys.exit(1)
-    return name
+def check_name(name):
+    """Ten thanh vien: chu khong dau, so, _ hoac -, toi da 32 ky tu. Sai thi None."""
+    name = str(name or "").strip()
+    if re.fullmatch(r"[A-Za-z0-9_\-]{1,32}", name):
+        return name
+    return None
 
 
 def plan(count):
-    """Chia tong so anh cho 4 buoc theo ty le 8/6/6/5."""
+    """Chia tong so anh cho 5 buoc theo ty le 8/6/6/5/5."""
     total = sum(weight for _, _, weight in STEPS)
     counts = [max(2, round(count * weight / total)) for _, _, weight in STEPS]
     return [(code, text, n) for (code, text, _), n in zip(STEPS, counts)]
@@ -70,7 +72,7 @@ class StepCheck:
 
     def check(self, code, yaw, width):
         """Tra ve (dat, loi_nhac)."""
-        if code == "straight":
+        if code in ("straight", "glasses"):
             if abs(yaw) >= STRAIGHT:
                 return False, "Nhin thang hon"
             return True, ""
@@ -107,7 +109,7 @@ def _yaw_bar(view, yaw, code):
     scale = half / 0.6
     cv2.line(view, (cx - half, y), (cx + half, y), (120, 120, 120), 2)
     zones = []
-    if code in ("straight", "far"):
+    if code in ("straight", "far", "glasses"):
         zones = [(-STRAIGHT, STRAIGHT)]
     elif code in ("side1", "side2"):
         zones = [(-SIDE_MAX, -SIDE_MIN), (SIDE_MIN, SIDE_MAX)]
@@ -119,13 +121,33 @@ def _yaw_bar(view, yaw, code):
         cv2.line(view, (x, y - 12), (x, y + 12), (255, 255, 255), 3)
 
 
-def capture(name, count, folder):
+def _show(view, viewer, control):
+    """Hien anh. Tra ve 'cancel', 'skip' hoac None."""
+    if viewer is not None:
+        viewer(view)
+        if control is not None and control.cancel.is_set():
+            return "cancel"
+        if control is not None and control.skip.is_set():
+            control.skip.clear()
+            return "skip"
+        return None
+    cv2.imshow("Dang ky khuon mat", view)
+    key = cv2.waitKey(1) & 0xFF
+    if key in (ord("q"), ord("Q")):
+        return "cancel"
+    if key in (ord("s"), ord("S")):
+        return "skip"
+    return None
+
+
+def capture(name, count, folder, viewer=None, control=None):
     engine = FaceEngine()
-    cap = engine.open_camera()
+    cap = open_camera()
     folder.mkdir(parents=True, exist_ok=True)
     steps = plan(count)
     checker = StepCheck()
     saved = []
+    tags = []
     missing = []
     print("Chup", sum(n for _, _, n in steps), "anh cho", name, "theo", len(steps), "buoc. S = bo qua buoc, Q = huy")
     try:
@@ -168,6 +190,7 @@ def capture(name, count, folder):
                                     path = folder / ("%s_%d%s_%02d.jpg" % (name, index, code, got))
                                     cv2.imwrite(str(path), aligned)
                                     saved.append(aligned)
+                                    tags.append("glasses" if code == "glasses" else "face")
                                     checker.accepted(code, yaw, width)
                                     got += 1
                                     last = time.time()
@@ -182,19 +205,58 @@ def capture(name, count, folder):
                 if status:
                     cv2.putText(view, status, (10, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
                 _yaw_bar(view, yaw, code)
-                cv2.imshow("Dang ky khuon mat", view)
-                key = cv2.waitKey(1) & 0xFF
-                if key in (ord("q"), ord("Q")):
+                action = _show(view, viewer, control)
+                if action == "cancel":
                     print("Da huy.")
-                    return engine, saved, [t for _, t, _ in steps]
-                if key in (ord("s"), ord("S")):
+                    return engine, saved, [t for _, t, _ in steps], tags
+                if action == "skip":
                     print("Bo qua buoc", index, "-", text)
                     missing.append(text)
                     break
     finally:
         cap.release()
-        cv2.destroyAllWindows()
-    return engine, saved, missing
+        if viewer is None:
+            cv2.destroyAllWindows()
+    return engine, saved, missing, tags
+
+
+def register(name, count=25, viewer=None, control=None):
+    """Dang ky mot nguoi bang webcam. Tra ve dict {ok, name, saved, detail}. Khong mo cua."""
+    checked = check_name(name)
+    if checked is None:
+        return {
+            "ok": False,
+            "name": "",
+            "saved": 0,
+            "detail": "Tên chỉ dùng chữ không dấu, số, _ hoặc -, tối đa 32 ký tự. Ví dụ: Minh.",
+        }
+    folder = FACE_DIR / "enroll" / checked
+    tmp = FACE_DIR / "enroll" / (checked + ".moi")
+    shutil.rmtree(tmp, ignore_errors=True)
+    try:
+        face_engine, saved, missing, tags = capture(checked, count, tmp, viewer=viewer, control=control)
+    except Exception as exc:
+        shutil.rmtree(tmp, ignore_errors=True)
+        return {"ok": False, "name": checked, "saved": 0, "detail": "Không đăng ký được: " + str(exc)}
+    straight_missing = STEPS[0][1] in missing
+    if straight_missing or len(saved) < 10:
+        shutil.rmtree(tmp, ignore_errors=True)
+        why = "Hãy nhìn thẳng vào webcam ở bước đầu." if straight_missing else "Làm đủ các bước rồi thử lại."
+        return {
+            "ok": False,
+            "name": checked,
+            "saved": len(saved),
+            "detail": "Chưa lưu khuôn mặt. " + why + " Khuôn mặt đã lưu trước đó vẫn giữ nguyên.",
+        }
+    shutil.rmtree(folder, ignore_errors=True)
+    tmp.rename(folder)
+    gallery = Gallery()
+    gallery.set_person(checked, [face_engine.embed_aligned(img) for img in saved], tags)
+    gallery.save()
+    detail = "Đã lưu khuôn mặt của " + checked + "."
+    if missing:
+        detail += " Đã bỏ qua một vài bước."
+    return {"ok": True, "name": checked, "saved": len(saved), "detail": detail}
 
 
 def main():
@@ -224,10 +286,13 @@ def main():
         parser.print_help()
         return
 
-    name = safe_name(args.name)
+    name = check_name(args.name)
+    if name is None:
+        print("Ten chi dung chu khong dau, so, _ hoac -, toi da 32 ky tu. Vi du: Minh, Binh_2")
+        sys.exit(1)
     if args.test:
         folder = FACE_DIR / "test" / name
-        _, saved, missing = capture(name, args.count or 50, folder)
+        _, saved, missing, _ = capture(name, args.count or 50, folder)
         print("Da luu", len(saved), "anh test vao", folder)
         if missing:
             print("Thieu buoc:", "; ".join(missing))
@@ -235,25 +300,10 @@ def main():
             print("(", name, "khong co trong kho mau -> face_eval.py tinh la NGUOI LA )")
         return
 
-    folder = FACE_DIR / "enroll" / name
-    tmp = FACE_DIR / "enroll" / (name + ".moi")
-    shutil.rmtree(tmp, ignore_errors=True)
-    engine, saved, missing = capture(name, args.count or 25, tmp)
-    straight_missing = STEPS[0][1] in missing
-    if straight_missing or len(saved) < 10:
-        shutil.rmtree(tmp, ignore_errors=True)
-        why = "thieu buoc nhin thang" if straight_missing else "chi co %d anh, can it nhat 10" % len(saved)
-        print("KHONG luu mau:", why + ". Giu nguyen mau cu (neu co).")
+    result = register(name, args.count or 25)
+    print(result["detail"])
+    if not result["ok"]:
         sys.exit(1)
-    # Dang ky lai: mau moi thay mau cu (UC02 - Alternative Flow).
-    shutil.rmtree(folder, ignore_errors=True)
-    tmp.rename(folder)
-    gallery.set_person(name, [engine.embed_aligned(img) for img in saved])
-    gallery.save()
-    print("Da dang ky", name, "voi", len(saved), "mau. Kho mau:", ", ".join(gallery.people))
-    if missing:
-        print("CANH BAO: thieu goc", "; ".join(missing) + ".",
-              "Quet luc nghieng dau co the bi tu choi. Nen dang ky lai cho du cac buoc.")
 
 
 if __name__ == "__main__":

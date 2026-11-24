@@ -102,7 +102,7 @@ MOCK_ACK_MS = env_float("MOCK_ACK_MS", 900)
 # FACE_ENABLE=0 thi gateway khong mo phan nay; nut cua tren web van dung duoc.
 FACE_ENABLE = env("FACE_ENABLE", "1") == "1"
 FACE_CAMERA = int(env_float("FACE_CAMERA", 0))
-# Bo trong: dung data/faces/threshold.json do yolohome.face.evaluate chon; chua co thi 0.5.
+# Bo trong: dung data/faces/threshold.json do yolohome.face.evaluate chon; chua co thi 0.7.
 FACE_THRESHOLD = env("FACE_THRESHOLD", "")
 # Moi lan quet toi da bao nhieu giay. Het gio ma chua du phieu thi cua van dong.
 FACE_SCAN_SECONDS = env_float("FACE_SCAN_SECONDS", 6)

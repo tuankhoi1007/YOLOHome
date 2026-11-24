@@ -266,6 +266,15 @@ class MockHome:
             self._queue(device, changes, source)
             return {"device": device, "status": "sent", "requested": changes}
 
+    def scan_face(self, source="Giao diện web"):
+        raise CommandError(503, "Nút quét mặt chỉ có khi chạy web với WEB_DATA=gateway.")
+
+    def enroll_face(self, name):
+        raise CommandError(503, "Đăng ký khuôn mặt chỉ có khi chạy web với WEB_DATA=gateway.")
+
+    def face_action(self, action):
+        raise CommandError(503, "Điều khiển webcam chỉ có khi chạy web với WEB_DATA=gateway.")
+
     def simulate(self, kind):
         """Nut gia lap tren dashboard (D11). Chi co o ban mock."""
         with self.lock:
