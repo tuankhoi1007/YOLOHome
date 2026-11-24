@@ -193,7 +193,7 @@ def _run_board(ser):
     return True
 
 
-def open_serial():
+def open_serial(exit_on_fail=True):
     try:
         import serial
     except ImportError:
@@ -204,9 +204,12 @@ def open_serial():
         ser = serial.Serial(config.COM_PORT, config.BAUD, timeout=1)
     except Exception as exc:
         print("Khong mo duoc", config.COM_PORT)
-        print("Ngat ket noi OhStem, kiem tra dung cong COM, roi chay lai.")
         print(exc)
-        sys.exit(1)
+        if exit_on_fail:
+            print("Ngat ket noi OhStem, kiem tra dung cong COM, roi chay lai.")
+            sys.exit(1)
+        print("Khong co board. Nhan dien khuon mat van chay. Den, quat, cua se khong phan hoi.")
+        return None
     print("Dang doc", config.COM_PORT, "toc do", config.BAUD)
     if not _run_board(ser):
         print("Board dang o che do nap, thu khoi dong lai")

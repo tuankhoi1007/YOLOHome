@@ -98,6 +98,31 @@ WEB_DATA = env("WEB_DATA", "mock")
 # Do tre gia lap tu luc gui lenh den luc thiet bi xac nhan. Lon hon 3000 thi web bao qua thoi gian cho.
 MOCK_ACK_MS = env_float("MOCK_ACK_MS", 900)
 
+# Nhan dien khuon mat (Phase 6, yolohome/face). Chay tren laptop, khong ton feed nao.
+# FACE_ENABLE=0 thi gateway khong mo phan nay; nut cua tren web van dung duoc.
+FACE_ENABLE = env("FACE_ENABLE", "1") == "1"
+FACE_CAMERA = int(env_float("FACE_CAMERA", 0))
+# Bo trong: dung data/faces/threshold.json do yolohome.face.evaluate chon; chua co thi 0.7.
+FACE_THRESHOLD = env("FACE_THRESHOLD", "")
+# Moi lan quet toi da bao nhieu giay. Het gio ma chua du phieu thi cua van dong.
+FACE_SCAN_SECONDS = env_float("FACE_SCAN_SECONDS", 6)
+# Mo cua khi trong FACE_WINDOW khung gan nhat co FACE_VOTES khung khop cung mot nguoi:
+# mot khung le khop nham khong du de mo cua.
+FACE_WINDOW = int(env_float("FACE_WINDOW", 7))
+FACE_VOTES = int(env_float("FACE_VOTES", 5))
+# 1 = them thu thach quay dau (chong anh in). FACE_LIVE_SPREAD la do quay toi thieu.
+FACE_LIVENESS = env("FACE_LIVENESS", "0") == "1"
+FACE_LIVE_SPREAD = env_float("FACE_LIVE_SPREAD", 0.30)
+FACE_PREVIEW = env("FACE_PREVIEW", "1") == "1"
+# Mat nho hon so pixel nay hoac anh mo hon muc nay thi khong dung (SFace kem chinh xac).
+FACE_MIN_SIZE = env_float("FACE_MIN_SIZE", 80)
+FACE_MIN_SHARP = env_float("FACE_MIN_SHARP", 40)
+# Dang ky: moi buoc tu the toi da bao nhieu giay.
+FACE_STEP_TIMEOUT = env_float("FACE_STEP_TIMEOUT", 30)
+# Anh, vector khuon mat va mo hinh nam trong code/data va code/models (da co trong .gitignore).
+FACE_DIR = ROOT / "data" / "faces"
+MODELS_DIR = ROOT / "models"
+
 SENSOR_FEEDS = (FEED_TEMP, FEED_HUMID, FEED_LIGHT)
 THRESHOLD_FEEDS = (FEED_TEMP_MAX, FEED_HUMID_MAX, FEED_LIGHT_MIN)
 CONTROL_FEEDS = (FEED_DEN, FEED_QUAT, FEED_CUA)

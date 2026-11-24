@@ -264,8 +264,58 @@ class WebCommandTest(unittest.TestCase):
         home, gw, clock, events = make_web()
         snap = home.snapshot()
         self.assertTrue(snap["features"]["devices"])
+        self.assertFalse(snap["features"]["face"])
         self.assertTrue(snap["devices"]["door"]["locked"])
         self.assertEqual(len(snap["colors"]), 4)
+
+    def test_face_scan_off_is_refused(self):
+        home, gw, clock, events = make_web()
+        self.assertIsNone(gw.face)
+        with self.assertRaises(CommandError) as caught:
+            home.scan_face()
+        self.assertEqual(caught.exception.status, 503)
+
+    def test_face_scan_starts_and_result_reaches_the_log(self):
+        home, gw, clock, events = make_web()
+
+        class FakeFace:
+            def __init__(self):
+                self.n = 0
+
+            def request_scan(self):
+                if self.n:
+                    return False
+                self.n += 1
+                return True
+
+        gw.enable_face(FakeFace())
+        self.assertTrue(home.snapshot()["features"]["face"])
+        self.assertEqual(home.scan_face()["status"], "started")
+        with self.assertRaises(CommandError) as caught:
+            home.scan_face()
+        self.assertEqual(caught.exception.status, 409)
+        home.on_face({"ok": True, "name": "Minh", "score": 0.81, "detail": "Khớp 5/7 khung"})
+        home.tick()
+        self.assertEqual(events.last("face")["name"], "Minh")
+        self.assertEqual(home.snapshot()["face"]["ok"], True)
+        logs = [data for kind, data in events.events if kind == "log" and data["type"] == "face"]
+        self.assertEqual(logs[-1]["status"], "Đúng")
+        home.on_face({"ok": False, "name": None, "score": 0.2, "detail": "Không đủ khung khớp"})
+        home.tick()
+        self.assertFalse(events.last("face")["ok"])
+        logs = [data for kind, data in events.events if kind == "log" and data["type"] == "face"]
+        self.assertEqual(logs[-1]["status"], "Không khớp")
+
+    def test_enroll_needs_a_plain_name_and_reaches_the_log(self):
+        home, gw, clock, events = make_web()
+        with self.assertRaises(CommandError) as caught:
+            home.enroll_face("Minh Nguyễn")
+        self.assertEqual(caught.exception.status, 400)
+        home.on_enroll({"ok": True, "name": "Minh", "saved": 12, "detail": "Đã đăng ký Minh"})
+        home.tick()
+        self.assertEqual(events.last("enroll")["name"], "Minh")
+        logs = [data for kind, data in events.events if kind == "log" and data["type"] == "face"]
+        self.assertEqual(logs[-1]["status"], "Đã lưu")
 
 
 if __name__ == "__main__":

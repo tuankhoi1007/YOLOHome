@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Web chay luon Module 1 + 2 (WEB_DATA=gateway): mot chuong trinh cho buoi demo.
+"""Web chay luon Module 1 + 2 + 3 va nut quet mat (WEB_DATA=gateway): mot chuong trinh cho buoi demo.
 
 yolohome.web.server tao GatewayHome. GatewayHome chay yolohome.gateway.Gateway
 (doc USB, gui feed, so nguong, gui LED:RED / LED:GREEN) trong mot luong rieng, va nhan
@@ -130,6 +130,7 @@ class GatewayHome(LiveHome):
             now = self.clock()
             view["features"]["devices"] = True
             view["features"]["door"] = True
+            view["features"]["face"] = self.gateway is not None and getattr(self.gateway, "face", None) is not None
             view["devices"] = {name: self._device_view(name, now) for name in self.devices}
             view["colors"] = [{"hex": code, "name": name} for code, name in LIGHT_COLORS]
         return view
@@ -155,6 +156,55 @@ class GatewayHome(LiveHome):
             else:
                 self.gateway.command(key, target, source)
             return {"device": device, "status": "sent", "requested": changes}
+
+    def scan_face(self, source="Giao diện web"):
+        """Bat dau mot lan quet. Ket qua den sau qua su kien 'face'; dung thi gateway tu mo cua."""
+        if self.gateway is None or not hasattr(self.gateway, "scan_face"):
+            raise CommandError(503, "Nhận diện khuôn mặt đang tắt.")
+        status = self.gateway.scan_face(source)
+        if status == "started":
+            return {"status": "started"}
+        if status == "busy":
+            raise CommandError(409, "Webcam đang bận. Đợi lần quét hoặc đăng ký xong rồi bấm lại.")
+        raise CommandError(503, "Nhận diện khuôn mặt đang tắt. Kiểm tra FACE_ENABLE, OpenCV và webcam.")
+
+    def enroll_face(self, name):
+        """Kiem tra ten roi mo webcam. Mat khau da duoc may chu kiem tra truoc do."""
+        if self.gateway is None or not hasattr(self.gateway, "enroll_face"):
+            raise CommandError(503, "Đăng ký khuôn mặt đang tắt.")
+        from yolohome.face.enroll import check_name
+
+        checked = check_name(name)
+        if checked is None:
+            raise CommandError(400, "Tên chỉ dùng chữ không dấu, số, _ hoặc -, tối đa 32 ký tự. Ví dụ: Minh.")
+        status = self.gateway.enroll_face(checked)
+        if status == "started":
+            return {"status": "started", "name": checked}
+        if status == "busy":
+            raise CommandError(409, "Webcam đang bận. Đợi lần quét hoặc đăng ký xong rồi bấm lại.")
+        raise CommandError(503, "Nhận diện khuôn mặt đang tắt. Kiểm tra FACE_ENABLE, OpenCV và webcam.")
+
+    def on_enroll(self, result):
+        self.incoming.put(("enroll", result))
+
+    def face_frames(self):
+        if self.gateway is None:
+            return None
+        return getattr(self.gateway, "frames", None)
+
+    def face_action(self, action):
+        if self.gateway is None or not hasattr(self.gateway, "face_action"):
+            raise CommandError(503, "Điều khiển webcam đang tắt.")
+        status = self.gateway.face_action(action)
+        if status == "idle":
+            raise CommandError(409, "Chưa có phiên đăng ký đang chạy.")
+        if status != "ok":
+            raise CommandError(400, "Không có lệnh này.")
+        return {"ok": True}
+
+    def on_face(self, result):
+        # Goi tu luong gateway: chi bo vao hang doi
+        self.incoming.put(("face", result))
 
     def _target_value(self, device, changes):
         """Gia tri feed (da chuan hoa) ung voi lenh tren web."""

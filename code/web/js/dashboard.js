@@ -192,6 +192,8 @@ listen({
     devices.onEvent(view);
   },
   voice: (voice) => ai.onVoice(voice),
+  face: (face) => ai.onFace(face),
+  enroll: (result) => ai.onEnroll(result),
   log: (entry) => recentLog.onEntry(entry),
 });
 
