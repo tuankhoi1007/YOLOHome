@@ -45,6 +45,9 @@ LIGHT_COLORS = (
     ("#2563eb", "Xanh dương"),
 )
 
+# Luot nghe gia lap: thu mic VOICE_SECONDS giay roi nhan dang khoang 1 giay, giong ban that.
+MOCK_TRANSCRIBE = 1.0
+
 LOG_TYPES = ("sensor", "control", "alert", "face", "voice", "system")
 DEVICES = ("light", "fan", "door")
 DEVICE_NAMES = {"light": "Đèn LED RGB (P14)", "fan": "Quạt mini", "door": "Khóa cửa (servo)"}
@@ -186,6 +189,8 @@ class MockHome:
         self.pending = []
         self.voice = None
         self.voice_index = 0
+        # Luot nghe dang chay (start_voice): dict text/device/on/transcribe_at/done_at, hoac None
+        self.voice_turn = None
         self.entries = []
         self.next_id = 1
         self._add_log(now, "system", "IoT Gateway", "Khởi động web với dữ liệu giả lập", "Khởi tạo", "neutral")
@@ -203,6 +208,7 @@ class MockHome:
                     "devices": True,
                     "face": False,
                     "voice": True,
+                    "voice_live": True,
                     "simulate": True,
                     "log": True,
                     "thresholds_write": True,
@@ -221,6 +227,8 @@ class MockHome:
                 "voice": self.voice,
                 "colors": [{"hex": hex_code, "name": name} for hex_code, name in LIGHT_COLORS],
                 "voice_commands": [text for text, device, on in VOICE_COMMANDS],
+                "voice_note": "",
+                "voice_model": "mô phỏng",
                 "door_relock": DOOR_RELOCK,
             }
 
@@ -268,6 +276,26 @@ class MockHome:
     def face_action(self, action):
         raise CommandError(503, "Điều khiển webcam chỉ có khi chạy web với WEB_DATA=gateway.")
 
+    def start_voice(self, source="Giao diện web"):
+        """Nut micro o ban mock: di qua dung cac buoc cua ban that, cau lenh xoay vong trong bo lenh."""
+        with self.lock:
+            if self.voice_turn is not None:
+                raise CommandError(409, "Micro đang bận. Đợi lượt nghe trước xong rồi bấm lại.")
+            now = self.clock()
+            text, device, on = VOICE_COMMANDS[self.voice_index % len(VOICE_COMMANDS)]
+            self.voice_index += 1
+            listen_end = now + config.VOICE_SECONDS
+            self.voice_turn = {
+                "text": text,
+                "device": device,
+                "on": on,
+                "transcribe_at": listen_end,
+                "done_at": listen_end + MOCK_TRANSCRIBE,
+                "transcribing": False,
+            }
+            self.emit("voice", {"status": "listening", "text": "", "message": "", "at": now})
+            return {"status": "started"}
+
     def simulate(self, kind):
         """Nut gia lap tren dashboard (D11). Chi co o ban mock."""
         with self.lock:
@@ -281,7 +309,9 @@ class MockHome:
             elif kind == "online":
                 self._set_online(True, now)
             elif kind == "voice":
-                self._voice(now)
+                text, device, on = VOICE_COMMANDS[self.voice_index % len(VOICE_COMMANDS)]
+                self.voice_index += 1
+                self._finish_voice(now, text, device, on)
             else:
                 raise CommandError(404, "Không có kiểu mô phỏng này")
             return {"ok": True}
@@ -293,6 +323,7 @@ class MockHome:
             now = self.clock()
             self._apply_due(now)
             self._relock(now)
+            self._step_voice(now)
             if self.online and now >= self.next_sensor:
                 self._step_sensors(now)
 
@@ -394,16 +425,27 @@ class MockHome:
             self._add_log(now, "system", "IoT Gateway", "Mất kết nối Adafruit IO / Gateway (mô phỏng)", "Mất kết nối", "danger")
         self.emit("gateway", self._gateway_view())
 
-    def _voice(self, now):
-        text, device, on = VOICE_COMMANDS[self.voice_index % len(VOICE_COMMANDS)]
-        self.voice_index += 1
-        self.voice = {"text": text, "at": now}
-        self.emit("voice", self.voice)
+    def _step_voice(self, now):
+        turn = self.voice_turn
+        if turn is None:
+            return
+        if not turn["transcribing"] and now >= turn["transcribe_at"]:
+            turn["transcribing"] = True
+            self.emit("voice", {"status": "transcribing", "text": "", "message": "", "at": now})
+        if now >= turn["done_at"]:
+            self.voice_turn = None
+            self._finish_voice(now, turn["text"], turn["device"], turn["on"])
+
+    def _finish_voice(self, now, text, device, on):
         if self.online:
-            self._add_log(now, "voice", "Micro laptop (Gateway)", "Lệnh \"" + text + "\"", "Đã gửi", "ok")
-            self._queue(device, {"on": on}, "giọng nói")
+            self.voice = {"status": "sent", "text": text, "message": "Đã gửi lệnh, chờ mạch xác nhận.", "at": now}
+            self._add_log(now, "voice", "Micro laptop", "Lệnh \"" + text + "\"", "Đã gửi", "ok")
+            self._queue(device, {"on": on}, "Giọng nói")
         else:
-            self._add_log(now, "voice", "Micro laptop (Gateway)", "Lệnh \"" + text + "\" không gửi được", "Lỗi", "danger")
+            message = "Không thể gửi lệnh: mất kết nối Gateway"
+            self.voice = {"status": "error", "text": text, "message": message, "at": now}
+            self._add_log(now, "voice", "Micro laptop", "Lệnh \"" + text + "\" không gửi được", "Lỗi", "danger")
+        self.emit("voice", self.voice)
 
     def _log_sensors(self, now):
         detail = (

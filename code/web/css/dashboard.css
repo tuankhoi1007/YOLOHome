@@ -706,6 +706,36 @@
   opacity: 0.5;
 }
 
+/* Dang thu mic: nut khoa nhung van ro, vong vang nhap nhay */
+.mic-btn.is-listening {
+  opacity: 1;
+  animation: mic-pulse 1.2s ease-in-out infinite;
+}
+
+.mic-btn.is-working {
+  opacity: 0.8;
+}
+
+@keyframes mic-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 var(--gold-30);
+  }
+  50% {
+    box-shadow: 0 0 0 10px var(--gold-15);
+  }
+}
+
+.voice-feedback.is-danger {
+  border-color: var(--danger-line);
+  color: var(--danger-ink);
+}
+
+.voice-feedback.is-neutral {
+  border-color: var(--line);
+  color: var(--muted);
+}
+
 .voice-hint {
   color: var(--muted);
   font-size: var(--text-xs);

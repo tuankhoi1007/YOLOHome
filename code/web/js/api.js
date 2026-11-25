@@ -53,6 +53,7 @@ export const api = {
   // Tra ve ngay khi lenh da gui; xac nhan cua thiet bi den sau qua su kien "device"
   command: (device, body) => request("POST", "/api/devices/" + device, body),
   simulate: (kind) => request("POST", "/api/sim/" + kind, {}),
+  listenVoice: () => request("POST", "/api/voice/listen", {}),
   scanFace: () => request("POST", "/api/face/scan", {}),
   enrollFace: (name, password) => request("POST", "/api/face/enroll", { name: name, password: password }),
   faceControl: (action) => request("POST", "/api/face/control", { action: action }),

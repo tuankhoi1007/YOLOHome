@@ -1,5 +1,7 @@
 // Muc 03: khuon mat (nut Quet mat, /api/face/scan) va giong noi (Figma 11:796, 11:831).
-// Giong noi van o Phase 7 (D8). Nut micro goi /api/sim/voice.
+// Giong noi (Phase 7): nut micro goi /api/voice/listen. Gateway thu mic laptop, Whisper chep loi,
+// su kien "voice" bao tung buoc: listening, transcribing, roi sent / rejected / error.
+// ready / off: ket qua nap mo hinh luc mo web. Thiet bi cap nhat qua su kien "device" khi board xac nhan.
 
 import { api } from "./api.js";
 import { byId, h } from "./dom.js";
@@ -21,6 +23,15 @@ function capitalize(text) {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
+// Het gio cho mot luot nghe (lan dau co the phai doi nap mo hinh). Qua gio thi mo nut lai.
+const VOICE_TIMEOUT_MS = 30000;
+const VOICE_DONE = ["sent", "rejected", "error"];
+const VOICE_STAGE_TEXT = {
+  starting: "Đang mở micro…",
+  listening: "Đang nghe… nói một lệnh",
+  transcribing: "Đang nhận dạng…",
+};
+
 export class Ai {
   constructor(container, notify) {
     this.container = container;
@@ -30,6 +41,11 @@ export class Ai {
     this.features = null;
     this.faceCard = null;
     this.voiceCard = null;
+    this.voiceStage = null;
+    this.voiceTimer = null;
+    this.voiceLive = false;
+    this.voiceNote = "";
+    this.voiceModel = null;
     this.serverUp = true;
     this.scanning = false;
     this.scanTimer = null;
@@ -58,6 +74,11 @@ export class Ai {
     this.voice = state.voice;
     this.face = state.face;
     this.commands = state.voice_commands;
+    this.voiceLive = Boolean(this.features.voice_live);
+    this.voiceNote = state.voice_note || "";
+    this.voiceModel = state.voice_model || null;
+    this.voiceStage = null;
+    clearTimeout(this.voiceTimer);
     this.scanning = false;
     clearTimeout(this.scanTimer);
     this.faceCard = this.features.face
@@ -68,7 +89,7 @@ export class Ai {
         );
     this.voiceCard = this.features.voice
       ? h("article", { class: "card ai-card", "aria-label": "Điều khiển giọng nói" })
-      : placeholder("Điều khiển giọng nói", "Làm ở Phase 7 (D8): micro laptop, bộ lệnh cố định cho đèn và quạt.");
+      : placeholder("Điều khiển giọng nói", "Chạy web với WEB_DATA=gateway để dùng micro laptop. Đèn và quạt vẫn bật/tắt được bằng nút.");
     this.container.replaceChildren(this.faceCard, this.voiceCard);
     this.render();
   }
@@ -79,8 +100,55 @@ export class Ai {
   }
 
   onVoice(voice) {
+    const status = voice.status;
+    if (status === "ready" || status === "off") {
+      this.voiceLive = status === "ready";
+      this.voiceNote = voice.message || "";
+      this.renderVoice();
+      return;
+    }
+    if (!VOICE_DONE.includes(status)) {
+      // listening / transcribing: ca tab khac cung thay micro dang ban
+      this.voiceStage = status;
+      this.armVoiceTimer();
+      this.renderVoice();
+      return;
+    }
+    this.voiceStage = null;
+    clearTimeout(this.voiceTimer);
     this.voice = voice;
     this.renderVoice();
+    if (status === "rejected") {
+      this.notify({ title: "Không phải lệnh hỗ trợ", text: voice.message || "", tone: "danger" });
+    } else if (status === "error") {
+      this.notify({ title: "Lệnh giọng nói lỗi", text: voice.message || "", tone: "danger" });
+    }
+  }
+
+  armVoiceTimer() {
+    clearTimeout(this.voiceTimer);
+    this.voiceTimer = setTimeout(() => {
+      if (!this.voiceStage) return;
+      this.voiceStage = null;
+      this.renderVoice();
+      this.notify({ title: "Không có kết quả", text: "Lượt nghe không trả lời. Bấm micro lại.", tone: "danger" });
+    }, VOICE_TIMEOUT_MS);
+  }
+
+  async listen() {
+    if (this.voiceStage) return;
+    this.voiceStage = "starting";
+    this.renderVoice();
+    try {
+      await api.listenVoice();
+      // Su kien listening co the den truoc khi POST tra loi: chi dat gio khi luot chua xong
+      if (this.voiceStage) this.armVoiceTimer();
+    } catch (err) {
+      this.voiceStage = null;
+      clearTimeout(this.voiceTimer);
+      this.renderVoice();
+      this.notify({ title: "Không nghe được", text: err.message, tone: "danger" });
+    }
   }
 
   onEnroll(result) {
@@ -311,28 +379,45 @@ export class Ai {
     );
   }
 
-  async simulate(kind) {
-    try {
-      await api.simulate(kind);
-    } catch (err) {
-      this.notify({ title: "Không mô phỏng được", text: err.message, tone: "danger" });
+  voiceHint() {
+    if (this.voiceStage) return VOICE_STAGE_TEXT[this.voiceStage] || "Đang xử lý…";
+    if (!this.voiceLive && this.voiceNote) return this.voiceNote;
+    if (this.features.simulate) return "Bấm micro để mô phỏng một lượt nói (không cần mic)";
+    return "Bấm micro rồi nói một lệnh trong vài giây";
+  }
+
+  voiceModelText() {
+    if (!this.voiceModel) return "chưa bật";
+    return this.features.simulate ? this.voiceModel : this.voiceModel + " (offline)";
+  }
+
+  voiceFeedback(voice) {
+    if (!voice || !VOICE_DONE.includes(voice.status)) return null;
+    if (voice.status === "sent") {
+      return h("p", { class: "voice-feedback" }, "Hệ thống: đã gửi lệnh “" + voice.text + "” lúc " + clock(voice.at));
     }
+    const tone = voice.status === "error" ? "is-danger" : "is-neutral";
+    return h("p", { class: "voice-feedback " + tone }, voice.message || "Không gửi lệnh.");
   }
 
   renderVoice() {
     if (!this.features || !this.features.voice) return;
     const voice = this.voice;
+    const stage = this.voiceStage;
+    const live = this.serverUp && this.voiceLive;
     const mic = h(
       "button",
       {
-        class: "mic-btn",
+        class: "mic-btn" + (stage === "listening" ? " is-listening" : stage ? " is-working" : ""),
         type: "button",
-        "aria-label": "Mô phỏng một câu lệnh giọng nói",
-        disabled: !this.serverUp || !this.features.simulate,
-        onclick: () => this.simulate("voice"),
+        "aria-label": "Bấm rồi nói một lệnh giọng nói",
+        "aria-busy": stage ? "true" : "false",
+        disabled: !this.serverUp || Boolean(stage),
+        onclick: () => this.listen(),
       },
       h("img", { src: "img/icon-mic.svg", width: 28, height: 28, alt: "" }),
     );
+    const pill = !this.serverUp ? "Mất kết nối" : stage ? "Đang bận" : live ? "Sẵn sàng" : "Chưa sẵn sàng";
     this.voiceCard.replaceChildren(
       h(
         "div",
@@ -343,15 +428,15 @@ export class Ai {
           h("h3", { class: "ai-title" }, "Điều Khiển Giọng Nói"),
           h("p", { class: "ai-sub" }, "Khẩu lệnh tiếng Việt qua micro laptop (Gateway)."),
         ),
-        h("span", { class: "mic-pill" }, h("span", { class: "dot " + (this.serverUp ? "is-on" : "is-off") }), this.serverUp ? "Sẵn sàng" : "Mất kết nối"),
+        h("span", { class: "mic-pill" }, h("span", { class: "dot " + (live ? "is-on" : "is-off") }), pill),
       ),
       h(
         "div",
         { class: "voice-box" },
         mic,
-        h("p", { class: "voice-hint" }, "Bấm micro để mô phỏng một câu lệnh (micro thật ở Gateway)"),
-        h("p", { class: "voice-said", "aria-live": "polite" }, voice ? "“" + capitalize(voice.text) + "”" : ""),
-        voice ? h("p", { class: "voice-feedback" }, "Hệ thống: đã nhận lệnh “" + voice.text + "” lúc " + clock(voice.at)) : null,
+        h("p", { class: "voice-hint", "aria-live": "polite" }, this.voiceHint()),
+        h("p", { class: "voice-said", "aria-live": "polite" }, voice && voice.text ? "“" + capitalize(voice.text) + "”" : ""),
+        this.voiceFeedback(voice),
       ),
       h(
         "div",
@@ -363,7 +448,12 @@ export class Ai {
           this.commands.map((text) => h("li", { class: "voice-command" }, "• “" + text + "”")),
         ),
       ),
-      h("div", { class: "ai-foot" }, h("span", null, "Ngôn ngữ: Tiếng Việt (vi-VN)"), h("span", null, "Bộ nhận dạng: chưa chốt (D8)")),
+      h(
+        "div",
+        { class: "ai-foot" },
+        h("span", null, "Ngôn ngữ: Tiếng Việt (vi-VN)"),
+        h("span", null, "Bộ nhận dạng: " + this.voiceModelText()),
+      ),
     );
   }
 }

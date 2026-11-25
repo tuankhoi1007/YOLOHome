@@ -119,6 +119,21 @@ FACE_MIN_SIZE = env_float("FACE_MIN_SIZE", 80)
 FACE_MIN_SHARP = env_float("FACE_MIN_SHARP", 40)
 # Dang ky: moi buoc tu the toi da bao nhieu giay.
 FACE_STEP_TIMEOUT = env_float("FACE_STEP_TIMEOUT", 30)
+# Giong noi (Phase 7, yolohome/voice). Mic laptop + Faster Whisper, chay offline sau khi tai mo hinh mot lan.
+# VOICE_ENABLE=0 thi web khong mo mic; nut den/quat van dung duoc.
+VOICE_ENABLE = env("VOICE_ENABLE", "1") == "1"
+# Ten mo hinh Whisper (small) hoac duong dan thu muc CTranslate2.
+# Bo trong: dung PhoWhisper-small (VinAI, nghe tieng Viet tot hon) neu da chuyen doi vao PHOWHISPER_DIR
+# (docs/plans/phase-7-giong-noi.md, buoc 2), chua co thi dung Whisper small.
+PHOWHISPER_DIR = Path(os.getenv("LOCALAPPDATA") or Path.home()) / "YOLOHome" / "models" / "phowhisper-small-ct2"
+VOICE_MODEL = env("VOICE_MODEL", str(PHOWHISPER_DIR) if (PHOWHISPER_DIR / "model.bin").is_file() else "small")
+# Bo trong = mic mac dinh. So = thu tu trong python -m sounddevice, chu = mot phan ten mic.
+VOICE_MIC = env("VOICE_MIC", "")
+VOICE_SECONDS = max(1, int(env_float("VOICE_SECONDS", 3)))
+# 0 = tat bo loc tieng noi (chi de chan doan). 1 = goi y hai tu "den", "quat" cho Whisper.
+VOICE_VAD = env("VOICE_VAD", "1") == "1"
+VOICE_HINTS = env("VOICE_HINTS", "0") == "1"
+
 # Anh, vector khuon mat va mo hinh nam trong code/data va code/models (da co trong .gitignore).
 FACE_DIR = ROOT / "data" / "faces"
 MODELS_DIR = ROOT / "models"

@@ -241,6 +241,8 @@ class Handler(BaseHTTPRequestHandler):
                         self._json(400, {"error": "Tên chỉ dùng chữ không dấu, số, _ hoặc -, tối đa 32 ký tự. Ví dụ: Minh."})
                     else:
                         self._json(202, app.home.enroll_face(body.get("name", "")))
+            elif path == "/api/voice/listen":
+                self._json(202, app.home.start_voice())
             elif path == "/api/face/control":
                 self._json(200, app.home.face_action(body.get("action", "")))
             else:

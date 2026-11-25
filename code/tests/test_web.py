@@ -473,6 +473,17 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(status, 503)
         self.assertIn("gateway", json.loads(data)["error"])
 
+    def test_voice_listen_route(self):
+        cookie = self.login()
+        status, _, data = self.call("POST", "/api/voice/listen", {}, cookie=cookie)
+        self.assertEqual(status, 202)
+        self.assertEqual(json.loads(data)["status"], "started")
+        status, _, data = self.call("POST", "/api/voice/listen", {}, cookie=cookie)
+        self.assertEqual(status, 409)
+        # Cho luot gia lap xong de cac test khac dung chung MockHome khong bi ban
+        self.clock.advance(10)
+        self.home.tick()
+
     def test_post_needs_json_content_type(self):
         cookie = self.login()
         status, _, _ = self.call("POST", "/api/sim/voice", {}, cookie=cookie, content_type="text/plain")

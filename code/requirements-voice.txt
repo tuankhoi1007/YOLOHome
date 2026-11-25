@@ -1,0 +1,7 @@
+# Dieu khien giong noi (Phase 7). Cai sau requirements.txt:
+#   python -m pip install -r requirements-voice.txt
+# av<19 giu API doc WAV tuong thich voi faster-whisper 1.2.1 (loi metadata_errors).
+# Neu Python 3.14 thieu wheel, tao venv rieng bang CPython 3.11 x64 (xem docs/plans/phase-7-giong-noi.md).
+faster-whisper==1.2.1
+av>=11,<19
+sounddevice>=0.4

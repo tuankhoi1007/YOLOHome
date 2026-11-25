@@ -1,4 +1,8 @@
-"""Bộ lệnh giọng nói dùng chung cho probe và dashboard."""
+"""Bộ lệnh giọng nói dùng chung cho probe, Gateway và dashboard (Phase 7).
+
+File này không import thư viện âm thanh: chế độ mock và test chạy được trên máy chưa cài
+requirements-voice.txt. Phần thu mic và Whisper nằm ở yolohome.voice.listen.
+"""
 
 import unicodedata
 

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Web chay luon Module 1 + 2 + 3 va nut quet mat (WEB_DATA=gateway): mot chuong trinh cho buoi demo.
+"""Web chay luon Module 1 + 2 + 3, nut quet mat va nut micro (WEB_DATA=gateway): mot chuong trinh cho buoi demo.
 
 yolohome.web.server tao GatewayHome. GatewayHome chay yolohome.gateway.Gateway
 (doc USB, gui feed, so nguong, gui LED:RED / LED:GREEN) trong mot luong rieng, va nhan
@@ -7,6 +7,10 @@ moi so doc duoc qua listener de day thang len web, khong phai doi Adafruit gui l
 
 Moi xu ly so lieu, canh bao, nhat ky ke thua tu yolohome.web.live.LiveHome. O day chi doi
 nguon du lieu: thay vi nghe MQTT, nghe luong gateway.
+
+Giong noi (Phase 7, yolohome/voice): start_voice() mo mot luong thu mic vai giay, Whisper chep loi,
+match_command() doi ra lenh roi goi command() nhu nut tren web (nguon "Giọng nói"). Moi buoc
+(listening, transcribing, sent / rejected / error) di qua hang doi, tick() phat su kien 'voice'.
 
 Khong chay cung luc voi python -m yolohome.gateway hay OhStem: ca ba deu can cung mot cong COM.
 """
@@ -18,6 +22,8 @@ from yolohome import config
 from yolohome.gateway import Gateway
 from yolohome.module1 import MIN_COMMAND_GAP, NORMALIZERS
 from yolohome.module2 import ThresholdPublisher
+from yolohome.voice import VOICE_COMMANDS, match_command
+from yolohome.voice.listen import HOTWORDS, ModelError, RecordingError
 from yolohome.web.live import LiveHome
 from yolohome.web.mock import DEVICE_NAMES, DOOR_RELOCK, LIGHT_COLORS, CommandError, parse_command
 
@@ -31,9 +37,14 @@ class GatewayHome(LiveHome):
     # Board gui khoang 2 giay, gateway lay mau 3 giay (READ_INTERVAL). 10 giay khong co so = mat board.
     STALE_SECONDS = 10
 
-    def __init__(self, emit, clock=time.time, connect=True, gateway=None):
-        # gateway: truyen vao khi kiem thu (khong mo cong COM that)
+    def __init__(self, emit, clock=time.time, connect=True, gateway=None, voice=None):
+        # gateway, voice: truyen vao khi kiem thu (khong mo cong COM, mic that)
         self.gateway = gateway
+        # Giong noi: VoiceEngine (yolohome.voice.listen) hoac None khi tat. Moi lan chi mot luot nghe.
+        self.voice_engine = voice
+        self.voice_note = ""
+        self.voice_busy = threading.Lock()
+        self.voice_thread = None
         # Trang thai that cua thiet bi (do ack cua board). color/speed nho lan chon cuoi de bat lai dung.
         now = clock()
         self.devices = {
@@ -61,6 +72,7 @@ class GatewayHome(LiveHome):
         self.publisher = ThresholdPublisher(self.gateway.client, self.gateway.feed_keys)
         self.thread = threading.Thread(target=self._run, daemon=True)
         self.thread.start()
+        self._enable_voice()
 
     def _run(self):
         try:
@@ -70,9 +82,12 @@ class GatewayHome(LiveHome):
             self.incoming.put(("mqtt", False))
 
     def close(self):
+        # stop cung chan luot nghe dang chay gui lenh muon; doi no nha mic
         self.stop.set()
         if self.thread is not None:
             self.thread.join(timeout=3)
+        if self.voice_thread is not None:
+            self.voice_thread.join(timeout=config.VOICE_SECONDS + 2)
         if self.gateway is not None:
             self.gateway.close()
 
@@ -133,6 +148,13 @@ class GatewayHome(LiveHome):
             view["features"]["face"] = self.gateway is not None and getattr(self.gateway, "face", None) is not None
             view["devices"] = {name: self._device_view(name, now) for name in self.devices}
             view["colors"] = [{"hex": code, "name": name} for code, name in LIGHT_COLORS]
+            engine = self.voice_engine
+            view["features"]["voice"] = True
+            view["features"]["voice_live"] = engine is not None and engine.ready
+            view["voice"] = self.last_voice
+            view["voice_commands"] = [text for text, device, on in VOICE_COMMANDS]
+            view["voice_note"] = self._voice_note()
+            view["voice_model"] = engine.label if engine is not None else None
         return view
 
     def command(self, device, body, source="Giao diện web"):
@@ -183,6 +205,103 @@ class GatewayHome(LiveHome):
         if status == "busy":
             raise CommandError(409, "Webcam đang bận. Đợi lần quét hoặc đăng ký xong rồi bấm lại.")
         raise CommandError(503, "Nhận diện khuôn mặt đang tắt. Kiểm tra FACE_ENABLE, OpenCV và webcam.")
+
+    # ---------- giong noi (Phase 7) ----------
+
+    def _enable_voice(self):
+        """Tao VoiceEngine theo .env va nap mo hinh o luong rieng de lan bam dau khong phai cho."""
+        if self.voice_engine is None:
+            if not config.VOICE_ENABLE:
+                self.voice_note = "Giọng nói đang tắt (VOICE_ENABLE=0 trong .env)."
+                print("Giong noi: tat (VOICE_ENABLE=0)")
+                return
+            from yolohome.voice.listen import VoiceEngine, parse_mic
+
+            self.voice_engine = VoiceEngine(
+                config.VOICE_MODEL,
+                device=parse_mic(config.VOICE_MIC),
+                seconds=config.VOICE_SECONDS,
+                vad_filter=config.VOICE_VAD,
+                hotwords=HOTWORDS if config.VOICE_HINTS else None,
+            )
+        threading.Thread(target=self._preload_voice, daemon=True).start()
+
+    def _preload_voice(self):
+        engine = self.voice_engine
+        try:
+            engine.load()
+        except ModelError as exc:
+            print("Giong noi: chua dung duoc -", exc)
+            self._voice_event("off", message=str(exc))
+            return
+        print("Giong noi: san sang (" + engine.label + ")")
+        self._voice_event("ready")
+
+    def _voice_note(self):
+        """Ly do nut micro chua dung duoc, hoac chuoi rong khi da san sang."""
+        engine = self.voice_engine
+        if engine is None:
+            return self.voice_note or "Giọng nói đang tắt. Kiểm tra VOICE_ENABLE và requirements-voice.txt."
+        if engine.error:
+            return engine.error
+        if not engine.ready:
+            return "Đang nạp mô hình " + engine.label + "…"
+        return ""
+
+    def start_voice(self, source="Giao diện web"):
+        """Bat dau mot luot nghe. Ket qua den sau qua su kien 'voice'; lenh hop le di qua command()."""
+        engine = self.voice_engine
+        if engine is None:
+            raise CommandError(503, self._voice_note())
+        if not self.voice_busy.acquire(blocking=False):
+            raise CommandError(409, "Micro đang bận. Đợi lượt nghe trước xong rồi bấm lại.")
+        try:
+            thread = threading.Thread(target=self._voice_turn, args=(engine,), daemon=True)
+            thread.start()
+        except Exception as exc:
+            self.voice_busy.release()
+            raise CommandError(500, "Không mở được luồng nghe: " + str(exc))
+        self.voice_thread = thread
+        print("Bat dau nghe (" + source + ")")
+        return {"status": "started"}
+
+    def _voice_turn(self, engine):
+        """Chay trong luong rieng, ngoai self.lock: thu am va Whisper mat vai giay."""
+        try:
+            try:
+                result = engine.listen(on_status=lambda status, detail="": self._voice_event(status))
+            except (RecordingError, ModelError) as exc:
+                self._voice_event("error", message=str(exc))
+                return
+            except Exception as exc:
+                print("Luot nghe loi:", exc)
+                self._voice_event("error", message="Lỗi nhận dạng: " + str(exc))
+                return
+            text = result.text
+            print("May nghe duoc:", repr(text))
+            command = match_command(text)
+            if command is None:
+                said = ", ".join("“" + phrase + "”" for phrase, device, on in VOICE_COMMANDS)
+                self._voice_event("rejected", text, "Hãy nói một trong bốn lệnh: " + said + ".")
+                return
+            if self.stop.is_set():
+                return
+            device, body = command
+            try:
+                # command() tu lay self.lock: khong goi trong khi dang giu khoa
+                self.command(device, body, source="Giọng nói")
+            except CommandError as exc:
+                self._voice_event("error", text, exc.message)
+                return
+            self._voice_event("sent", text, "Đã gửi lệnh, chờ mạch xác nhận.")
+        finally:
+            self.voice_busy.release()
+
+    def _voice_event(self, status, text="", message=""):
+        # Goi tu luong nghe: chi bo vao hang doi
+        self.incoming.put(("voice", {"status": status, "text": text, "message": message}))
+
+    # ---------- khuon mat (Phase 6) ----------
 
     def on_enroll(self, result):
         self.incoming.put(("enroll", result))

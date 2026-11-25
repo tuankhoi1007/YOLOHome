@@ -68,6 +68,7 @@ class LiveHome:
         self.entries = []
         self.next_id = 1
         self.last_face = None
+        self.last_voice = None
         self.client = None
         self.publisher = None
         self._add_log(now, "system", "Web", "Mở web, dữ liệu thật (" + self.MODE + ")", "Khởi tạo", "neutral")
@@ -151,6 +152,7 @@ class LiveHome:
                     "devices": False,
                     "face": False,
                     "voice": False,
+                    "voice_live": False,
                     "simulate": False,
                     "log": True,
                     "thresholds_write": self.publisher is not None,
@@ -164,6 +166,8 @@ class LiveHome:
                 "voice": None,
                 "colors": [],
                 "voice_commands": [],
+                "voice_note": "",
+                "voice_model": None,
                 "door_relock": DOOR_RELOCK,
             }
 
@@ -229,6 +233,9 @@ class LiveHome:
     def face_action(self, action):
         raise CommandError(503, "Điều khiển webcam chỉ có khi chạy web với WEB_DATA=gateway.")
 
+    def start_voice(self, source="Giao diện web"):
+        raise CommandError(503, "Micro chỉ có khi chạy web với WEB_DATA=gateway.")
+
     # ---------- nhip ----------
 
     def tick(self):
@@ -249,6 +256,8 @@ class LiveHome:
                     self._take_face(now, data)
                 elif kind == "enroll":
                     self._take_enroll(now, data)
+                elif kind == "voice":
+                    self._take_voice(now, data)
             self._check_online(now)
 
     def _take_face(self, now, result):
@@ -276,6 +285,36 @@ class LiveHome:
         detail = result.get("detail") or ("Đã đăng ký" if ok else "Không lưu mẫu")
         self._add_log(now, "face", "Đăng ký khuôn mặt", detail, "Đã lưu" if ok else "Không lưu", "ok" if ok else "danger")
         self.emit("enroll", result)
+
+    def _take_voice(self, now, turn):
+        """Mot buoc cua luot nghe: listening, transcribing, roi sent / rejected / error.
+
+        Chi ghi nhat ky o buoc cuoi. Thiet bi cap nhat sau, khi board xac nhan (su kien 'device').
+        ready / off: ket qua nap mo hinh luc mo web, khong phai mot luot nghe.
+        """
+        shown = {
+            "status": turn.get("status", ""),
+            "text": turn.get("text") or "",
+            "message": turn.get("message") or "",
+            "at": now,
+        }
+        if shown["status"] in ("ready", "off"):
+            if shown["status"] == "off":
+                self._add_log(now, "system", "Micro laptop", "Giọng nói chưa dùng được: " + shown["message"], "Lỗi", "danger")
+            self.emit("voice", shown)
+            return
+        self.last_voice = shown
+        self.emit("voice", shown)
+        said = "\"" + shown["text"] + "\"" if shown["text"] else "Không nghe rõ"
+        if shown["status"] == "sent":
+            self._add_log(now, "voice", "Micro laptop", "Lệnh " + said, "Đã gửi", "ok")
+        elif shown["status"] == "rejected":
+            self._add_log(now, "voice", "Micro laptop", said + " không phải lệnh hỗ trợ", "Từ chối", "neutral")
+        elif shown["status"] == "error":
+            detail = shown["message"] or "Lỗi micro"
+            if shown["text"]:
+                detail = said + ": " + detail
+            self._add_log(now, "voice", "Micro laptop", detail, "Lỗi", "danger")
 
     def _take_device(self, now, device, value, ok, source, reason):
         """Ket qua lenh den/quat/cua. Chi GatewayHome co thiet bi that."""

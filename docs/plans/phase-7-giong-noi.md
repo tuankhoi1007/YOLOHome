@@ -2,7 +2,7 @@
 
 Sau khi hoàn thành hướng dẫn, bạn có thể bấm biểu tượng micro trên dashboard, đợi chữ **Đang nghe**, nói **“bật quạt”**, rồi nhìn thấy tốc độ quạt đã được board xác nhận. Ba lệnh còn lại là **“tắt quạt”, “bật đèn”, “tắt đèn”**. Mỗi lần bấm tương ứng với một lượt nói. Máy chuẩn để thử là Windows, Intel i5-1240P, RAM 16 GB và mic tích hợp.
 
-**Bắt đầu ở bước 1 nếu chưa có kit.** Probe và bộ khớp lệnh ở bước 1–4 đã có trong repo. Bước 5–6 mô tả phần tích hợp vào dashboard. Bước 7–8 dùng kit để đánh giá tác động thật.
+**Bắt đầu ở bước 1 nếu chưa có kit.** Probe và bộ khớp lệnh ở bước 1–4 đã có trong repo. Bước 5–6 (Gateway và nút micro trên dashboard) đã tích hợp, phần đó mô tả cách hoạt động và cấu hình. Bước 7–8 dùng kit để đánh giá tác động thật.
 
 ## Tài liệu và thiết bị cần chuẩn bị
 
@@ -22,14 +22,14 @@ if (!(Test-Path .\.venv\Scripts\python.exe)) { py -3 -m venv .venv }
 $python = (Resolve-Path .\.venv\Scripts\python.exe).Path
 & $python --version
 & $python -m pip install -r requirements.txt
-& $python -m pip install "faster-whisper==1.2.1" "av>=11,<19" sounddevice
+& $python -m pip install -r requirements-voice.txt
 & $python -c "import faster_whisper, sounddevice; print('Import OK')"
 & $python -m sounddevice
 ```
 
 **Kiểm tra:** cần thấy `Import OK` và một thiết bị như *Microphone Array* có ít nhất một kênh vào. Mở **Settings → System → Sound → Input**, chọn mic laptop, nói thử và nhìn thanh âm lượng. Trong **Privacy & security → Microphone**, cho phép ứng dụng desktop truy cập mic. Trong bài này Python là ứng dụng mở mic.
 
-Giới hạn `av<19` giữ API đọc WAV tương thích với Faster Whisper 1.2.1. Nếu probe báo lỗi `metadata_errors`, chạy lại lệnh cài ở trên. [Lỗi tương thích đã ghi nhận ở Faster Whisper](https://github.com/SYSTRAN/faster-whisper/issues/1589)
+Giới hạn `av<19` giữ API đọc WAV tương thích với Faster Whisper 1.2.1. Nếu probe báo lỗi `metadata_errors`, chạy lại lệnh cài ở trên. Các gói giọng nói nằm riêng trong `requirements-voice.txt` để máy chỉ dùng cảm biến và nút tay không phải cài chúng. [Lỗi tương thích đã ghi nhận ở Faster Whisper](https://github.com/SYSTRAN/faster-whisper/issues/1589)
 
 Nếu pip báo thiếu wheel hoặc import DLL lỗi, ghi lại phiên bản Python và tên gói lỗi. Trên máy đang dùng Python 3.14, có thể thử CPython 3.11 x64 trong môi trường riêng: sau khi cài 3.11, chạy `py -3.11 -m venv .venv-voice`, đặt lại `$python = (Resolve-Path .\.venv-voice\Scripts\python.exe).Path` rồi lặp các lệnh cài và kiểm tra phía trên. Khi mở terminal mới, đặt lại `$python` tới môi trường đã chạy thành công. [Python cho Windows](https://www.python.org/downloads/windows/)
 
@@ -45,29 +45,42 @@ Nếu laptop khác sẽ dùng để demo, chạy lệnh trên máy đó trước
 
 ### Dùng PhoWhisper-small của VinAI
 
-Chạy probe với thư mục PhoWhisper-small đã chuyển sang CTranslate2. Bản chuyển đổi dùng INT8 trên CPU và nằm trong thư mục model cục bộ của YOLOHome. [Mô hình gốc của VinAI](https://huggingface.co/vinai/PhoWhisper-small) · [Cách chuyển mô hình cho Faster Whisper](https://github.com/SYSTRAN/faster-whisper#model-conversion)
+PhoWhisper-small là Whisper được VinAI train thêm trên tiếng Việt, nghe lệnh tiếng Việt tốt hơn Whisper `small` gốc. **Web và probe tự dùng PhoWhisper** khi thư mục `%LOCALAPPDATA%\YOLOHome\models\phowhisper-small-ct2` có `model.bin` và `VOICE_MODEL` trong `.env` để trống. Chưa có thư mục này thì dùng Whisper `small`. [Mô hình gốc của VinAI](https://huggingface.co/vinai/PhoWhisper-small) · [Cách chuyển mô hình cho Faster Whisper](https://github.com/SYSTRAN/faster-whisper#model-conversion)
+
+Chuyển đổi một lần, cần Internet. Torch và transformers chỉ dùng cho bước này, nên cài vào một venv tạm có đường dẫn ngắn: Windows chưa bật Long Path sẽ cài torch lỗi nếu đường dẫn dài. Xóa venv tạm sau khi xong.
 
 ```powershell
+$cv = Join-Path $env:LOCALAPPDATA "YOLOHome\cv"
+py -3.12 -m venv $cv
+& "$cv\Scripts\python.exe" -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+& "$cv\Scripts\python.exe" -m pip install transformers "ctranslate2==4.9.1"
 $pho = Join-Path $env:LOCALAPPDATA "YOLOHome\models\phowhisper-small-ct2"
-& $python -X utf8 .\voice_probe.py --offline --model-dir $pho
+& "$cv\Scripts\ct2-transformers-converter.exe" --model vinai/PhoWhisper-small --output_dir $pho --quantization int8 --copy_files tokenizer.json preprocessor_config.json
+Remove-Item -Recurse -Force $cv
 ```
 
-Để so sánh trên một file WAV, dùng cùng đường dẫn trong cả hai lệnh.
+Thư mục kết quả khoảng 250 MB, gồm `model.bin`, `config.json`, `tokenizer.json`, `preprocessor_config.json` và `vocabulary.json`. Thử với probe:
+
+```powershell
+& $python -X utf8 -m yolohome.voice.probe --offline --model-dir $pho
+```
+
+Để so sánh trên một file WAV, dùng cùng đường dẫn trong cả hai lệnh. `--model small` ép dùng Whisper gốc.
 
 ```powershell
 $wav = Join-Path $env:TEMP "yolohome-bat-den-test.wav"
-& $python -X utf8 .\voice_probe.py --offline --input-wav $wav
-& $python -X utf8 .\voice_probe.py --offline --model-dir $pho --input-wav $wav
+& $python -X utf8 -m yolohome.voice.probe --offline --model small --input-wav $wav
+& $python -X utf8 -m yolohome.voice.probe --offline --model-dir $pho --input-wav $wav
 ```
 
 Trên laptop khác, sao chép cả thư mục `phowhisper-small-ct2` rồi đặt `$pho` trỏ đến thư mục đó. Probe dùng trực tiếp bản CTranslate2 và các thư viện ở bước 1.
 
 ## 3. Nghe một câu thật trước khi viết API
 
-Probe thu **3 giây** mỗi lượt, giữ âm thanh trong RAM và giải mã tiếng Việt sau khi thu. Faster Whisper lọc đoạn thiếu tiếng nói trước khi chép lời. Chạy lệnh từ thư mục `code`. [Mã probe](../../code/voice_probe.py)
+Probe thu **3 giây** mỗi lượt, giữ âm thanh trong RAM và giải mã tiếng Việt sau khi thu. Faster Whisper lọc đoạn thiếu tiếng nói trước khi chép lời. Chạy lệnh từ thư mục `code`. [Mã probe](../../code/yolohome/voice/probe.py) · [Thu mic và Whisper](../../code/yolohome/voice/listen.py)
 
 ```powershell
-& $python .\voice_probe.py --offline
+& $python -X utf8 -m yolohome.voice.probe --offline
 ```
 
 Nhấn Enter, đợi **“Đang nghe”** rồi nói **“bật đèn”**. Probe in tên mic, chuyển sang **“Đang nhận dạng”** khi thu xong, rồi in câu Whisper chép, thời gian xử lý và lệnh dự kiến. Nếu mic mất mẫu hoặc mở mic thất bại, probe báo lỗi và giữ mô hình trong bộ nhớ để bạn thử lượt tiếp theo. Nếu chạy offline mà thiếu mô hình, kết nối mạng và thực hiện lại bước 2.
@@ -78,10 +91,10 @@ Chọn số mic bằng `& $python -m sounddevice`. Các lệnh dưới dùng mic
 
 ```powershell
 $wav = Join-Path $env:TEMP "yolohome-voice-probe.wav"
-& $python .\voice_probe.py --offline --device 2 --seconds 3 --wav $wav
+& $python -X utf8 -m yolohome.voice.probe --offline --device 2 --seconds 3 --wav $wav
 Invoke-Item $wav
-& $python .\voice_probe.py --offline --input-wav $wav
-& $python .\voice_probe.py --offline --input-wav $wav --no-vad
+& $python -X utf8 -m yolohome.voice.probe --offline --input-wav $wav
+& $python -X utf8 -m yolohome.voice.probe --offline --input-wav $wav --no-vad
 ```
 
 - Nếu WAV thiếu tiếng đầu hoặc tiếng cuối, kiểm tra mic đã chọn và thử thu với `--seconds 4`.
@@ -91,37 +104,52 @@ Invoke-Item $wav
 Nếu Whisper nghe sai tên thiết bị, thử cùng file WAV với gợi ý từ vựng. Tùy chọn `--hint-devices` gợi ý hai từ **đèn** và **quạt** cho Whisper.
 
 ```powershell
-& $python .\voice_probe.py --offline --input-wav $wav --hint-devices
-& $python .\voice_probe.py --offline --hint-devices
+& $python -X utf8 -m yolohome.voice.probe --offline --input-wav $wav --hint-devices
+& $python -X utf8 -m yolohome.voice.probe --offline --hint-devices
 ```
 
 Trên một bản WAV của nhóm, tùy chọn này đổi kết quả từ “Bật đen” thành “bật đèn”. Lặp lại bài thử ở bước 4 với cả hai cấu hình để xem gợi ý có giúp trên các câu khác hay khiến một câu phủ định bị chép thành lệnh hợp lệ.
 
 ## 4. Kiểm tra bốn lệnh trước khi nối Gateway
 
-`match_command()` nhận đúng bốn câu sau khi chuẩn hóa chữ hoa/thường, dấu câu cuối câu và khoảng trắng. Dòng **“Lệnh dự kiến”** trong probe cho thấy thiết bị và giá trị mà Gateway sẽ nhận khi tích hợp. [Bộ khớp lệnh](../../code/yolohome/voice.py)
+`match_command()` nhận đúng bốn câu sau khi chuẩn hóa chữ hoa/thường, dấu câu cuối câu và khoảng trắng. Dòng **“Lệnh dự kiến”** trong probe cho thấy thiết bị và giá trị mà Gateway sẽ nhận khi tích hợp. [Bộ khớp lệnh](../../code/yolohome/voice/__init__.py)
 
 1. Chạy probe với cấu hình muốn dùng. Mỗi lượt nói một trong bốn câu **“bật đèn”**, **“tắt đèn”**, **“bật quạt”** hoặc **“tắt quạt”**. So sánh câu đã nói, câu Whisper chép và lệnh dự kiến. Ví dụ, “bật đèn” phải cho `('light', {'on': True})`.
 2. Thử **im lặng**, **“đừng bật đèn”**, **“đừng tắt quạt”**, **“bật đèn rồi tắt quạt”** và **“mở cửa”**. Kỳ vọng mỗi lượt in `Lệnh dự kiến: Từ chối`. Nếu Whisper bỏ sót “đừng” và probe in lệnh bật/tắt, ghi nhận đây là lỗi kích hoạt và tiếp tục chẩn đoán ở bước 3.
 3. Lặp lại với tiếng quạt và một giọng khác. Dùng kết quả bài thử nhỏ để quyết định cấu hình đem tích hợp. Bộ đánh giá cuối nằm ở bước 8.
 
-## 5. Gắn việc nghe vào Gateway
+## 5. Gateway nghe mic (đã tích hợp)
 
-1. Tách `listen_once` và `transcribe` sang module giọng nói trong `code/yolohome/`. Cho phép truyền hàm báo “đang nghe” vào nơi probe đang `print`. Chỉ import thư viện khi khởi tạo voice. Thêm `faster-whisper` và `sounddevice` vào danh sách phụ thuộc theo các phiên bản đã thử (`& $python -m pip show faster-whisper sounddevice`). Tải model trước buổi demo và cấu hình Gateway dùng `local_files_only=True` khi nạp.
-2. Trong `GatewayHome`, thêm `start_voice()`. Dùng một khóa riêng cho lượt nghe, lấy khóa bằng `acquire(blocking=False)`. Nếu đang bận, trả `CommandError(409, "Micro đang bận")`. Nếu nhận lượt, khởi động worker rồi trả ngay. Worker nạp model lần đầu, giữ lại cho các lượt tiếp theo và giải phóng khóa trong `finally`. Nếu khởi động worker lỗi, giải phóng khóa ngay tại nơi tạo worker. Thu âm và suy luận ở ngoài khóa trạng thái của `GatewayHome`.
-3. Khi stream mở thành công, phát sự kiện `voice` có `status="listening"`. Khi đóng mic và bắt đầu suy luận, phát `status="transcribing"`. Sau khi nhận dạng, gọi `match_command(text)`. Nếu là `None`, lưu `status="rejected"`, hiện “Hãy nói một trong bốn lệnh” rồi kết thúc. Nếu hợp lệ, tách `device, body` và gọi **một lần** `self.command(device, body, source="Giọng nói")`. Gọi hàm này bên ngoài `with self.lock` vì chính nó lấy khóa bên trong. Hàm hiện có phục hồi màu đèn hoặc tốc độ quạt khi bật. [GatewayHome.command](../../code/yolohome/web/gateway.py)
-4. Ghi và phát trạng thái lượt nghe gồm `status`, `text`, `at` (giây Unix) và `message`. Dùng `sent` khi Gateway đã tiếp nhận, `error` khi mic/model lỗi hoặc `command()` từ chối. Cho `snapshot()` trả bản voice mới nhất, bốn câu hỗ trợ và cờ `features.voice` để tải lại trang vẫn đúng. Khi đóng Gateway, ngăn worker đang thu gửi lệnh muộn và đợi nó nhả mic. [Mẫu snapshot và sự kiện](../../code/yolohome/web/live.py)
-5. Để luồng Module 3 cập nhật thẻ thiết bị khi board phản hồi. `status="sent"` chỉ diễn tả việc tiếp nhận yêu cầu. Nếu đích đã trùng trạng thái xác nhận, Gateway có thể phát lại trạng thái hiện tại ngay. Nếu lệnh mới hết hạn chờ ACK, xem lỗi trong log và giữ trạng thái thiết bị đã xác nhận trước đó. Không phát lệnh lần hai từ trình duyệt.
+Khi chạy web với `WEB_DATA=gateway`, `GatewayHome` tạo `VoiceEngine` theo `.env` và nạp mô hình ở luồng nền ngay lúc mở web, nên lần bấm đầu không phải chờ. Terminal in `Giong noi: san sang (phowhisper-small-ct2)` (hoặc `Whisper small`) khi nạp xong, hoặc lý do chưa dùng được (thiếu thư viện, chưa có mô hình trong cache). Web luôn nạp với `local_files_only=True`, nên hãy tải mô hình trước theo bước 2. [GatewayHome](../../code/yolohome/web/gateway.py)
 
-**Thử độc lập:** dùng Gateway giả theo mẫu test của repo, thay hàm nghe bằng hàm trả “bật quạt”. Kiểm tra đúng một yêu cầu đến `fan` với `{"on": True}`. Đổi sang “đừng bật quạt” và kiểm tra số yêu cầu bằng 0. Giả lập lỗi mic rồi thử lượt hợp lệ kế tiếp để kiểm tra khóa đã được nhả. [Các test web hiện có](../../code/tests/test_web.py)
+Các khóa trong `code/.env` (mẫu ở `.env.example`):
 
-## 6. Nối nút micro trên dashboard
+| Khóa | Mặc định | Ý nghĩa |
+| --- | --- | --- |
+| `VOICE_ENABLE` | `1` | `0` để tắt mic; nút đèn/quạt vẫn dùng được |
+| `VOICE_MODEL` | trống | Trống = PhoWhisper-small nếu đã chuyển đổi ở bước 2, chưa có thì Whisper `small`. Hoặc đặt `small` / đường dẫn thư mục CTranslate2 khác |
+| `VOICE_MIC` | trống | Trống = mic mặc định; số = thứ tự trong `python -m sounddevice` |
+| `VOICE_SECONDS` | `3` | Số giây thu mỗi lượt |
+| `VOICE_VAD` | `1` | `0` tắt bộ lọc tiếng nói (chỉ để chẩn đoán) |
+| `VOICE_HINTS` | `0` | `1` gợi ý hai từ “đèn”, “quạt” cho Whisper (như `--hint-devices`) |
 
-1. Trong `Handler.do_POST`, thêm nhánh cho `/api/voice/listen` sau kiểm tra đăng nhập và đọc JSON. Với `WEB_DATA=gateway`, gọi `app.home.start_voice()` và trả HTTP 202 khi đã nhận lượt. Body gửi lên là `{}`. Với provider chưa hỗ trợ mic thật, trả lỗi có thông báo rõ qua cơ chế `CommandError`. [Router hiện tại](../../code/yolohome/web/server.py)
-2. Trong object `api`, thêm `listenVoice: () => request("POST", "/api/voice/listen", {}),`. Sự kiện `voice` đã có trong danh sách SSE, và dashboard đã nối nó vào `ai.onVoice(voice)`. [API của frontend](../../code/web/js/api.js) · [Bộ nhận sự kiện](../../code/web/js/dashboard.js)
-3. Trong `Ai.renderVoice()`, cho nút gọi `api.listenVoice()` ở chế độ gateway và `simulate("voice")` ở chế độ mock. Sửa cả điều kiện `disabled` hiện đang phụ thuộc vào `features.simulate`. Khóa nút từ lúc gửi yêu cầu tới khi nhận `sent`, `rejected` hoặc `error`. Hiện “Đang nghe” với `listening` và “Đang nhận dạng” với `transcribing`. Xử lý lỗi HTTP và đồng bộ lại qua `snapshot()` sau khi SSE kết nối lại. [Thẻ micro cần sửa](../../code/web/js/ai.js)
+Mỗi lần bấm là một lượt. `start_voice()` lấy khóa mic bằng `acquire(blocking=False)`: đang có lượt khác thì trả 409 “Micro đang bận”. Luồng nghe thu âm và chạy Whisper ngoài khóa trạng thái của web, rồi gọi `match_command(text)`:
 
-**Kiểm tra trong trình duyệt:** mở DevTools → Network. Một lần bấm tạo đúng một POST. Mở hai tab rồi bấm liên tiếp. Tab thứ hai phải thấy mic đang bận nếu lượt đầu còn chạy. Nói câu ngoài bộ lệnh, kiểm tra thẻ thiết bị giữ trạng thái trước đó. Chuyển sang mock và kiểm tra nút mô phỏng vẫn chạy trên máy thiếu mic.
+- Câu khớp một trong bốn lệnh: gọi **một lần** `command(device, body, source="Giọng nói")`, giống nút trên web. Đèn bật lại màu đã chọn, quạt bật lại tốc độ đã chọn. Lượt kết thúc với `sent`.
+- Câu ngoài bộ lệnh (im lặng, “đừng bật đèn”, câu ghép, “mở cửa”…): `rejected`, không gửi gì.
+- Mic hoặc mô hình lỗi, hoặc `command()` từ chối (429 bấm quá nhanh, 503 mất board): `error` kèm lý do. Khóa mic luôn được nhả, lượt sau thử lại được.
+
+Sự kiện `voice` gửi lên trình duyệt có `status` (`listening`, `transcribing`, `sent`, `rejected`, `error`), `text`, `message` và `at`. Nhật ký ghi một dòng loại **Giọng nói** cho mỗi lượt đã kết thúc. `sent` chỉ có nghĩa là Gateway đã nhận lệnh. Thẻ thiết bị đổi khi board gửi ACK, theo đúng luồng Module 3. Khi tắt web, lượt đang thu không gửi lệnh muộn.
+
+**Test tự động:** `code/tests/test_voice.py` thay mic và Whisper bằng `FakeEngine`, nên chạy được trên máy chưa cài `requirements-voice.txt`. [Test giọng nói](../../code/tests/test_voice.py)
+
+## 6. Nút micro trên dashboard (đã tích hợp)
+
+Nút micro gọi `POST /api/voice/listen` (trả 202). Từ lúc bấm đến khi nhận `sent`, `rejected` hoặc `error`, nút bị khóa và thẻ hiện “Đang nghe…” rồi “Đang nhận dạng…”. Các tab khác đang mở cũng thấy micro bận. Câu máy nghe được và kết quả hiện dưới nút; `rejected`/`error` hiện thêm thông báo. Nếu mô hình chưa nạp được, thẻ ghi lý do và chấm trạng thái chuyển xám. [Thẻ micro](../../code/web/js/ai.js)
+
+Với `WEB_DATA=mock`, nút micro đi qua đúng các bước như trên nhưng không mở mic: mỗi lượt lấy lần lượt một câu trong bộ lệnh. Dùng chế độ này để thử giao diện trên máy không có mic.
+
+**Kiểm tra trong trình duyệt:** mở DevTools → Network. Một lần bấm tạo đúng một POST. Mở hai tab rồi bấm liên tiếp. Tab thứ hai phải thấy mic đang bận nếu lượt đầu còn chạy. Nói câu ngoài bộ lệnh, kiểm tra thẻ thiết bị giữ trạng thái trước đó.
 
 ## 7. Chạy với board thật
 
