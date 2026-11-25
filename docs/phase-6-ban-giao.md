@@ -46,7 +46,7 @@ Dòng lệnh vẫn dùng được, và vẫn mở cửa sổ OpenCV riêng (phí
 - Cửa phải mở được từ nút trên web kể cả khi mặt tắt, webcam lỗi, hoặc không nhận ra. Không được khóa đường đó.
 - Không thêm feed Adafruit cho mặt hoặc nhật ký. Tài khoản chỉ có 10 feed. Không vượt khoảng 30 điểm mỗi phút.
 - Không làm bơm, ẩm đất, siêu âm.
-- Giọng nói là Phase 7: lệnh tiếng Việt cố định, không dùng LLM. Chưa làm.
+- Giọng nói (Phase 7) đã có: đúng bốn lệnh tiếng Việt cố định (bật đèn, tắt đèn, bật quạt, tắt quạt), faster-whisper chạy offline trên laptop, không dùng LLM, không chạy trên board. Đừng thêm lệnh cửa hay LLM. Cách chạy ở README mục 4.6.
 - Module 4 không bắt database. Rubric chỉ cần ghi nhận hoạt động và giao diện rõ. Hiện nhật ký nằm trong RAM, lịch sử cảm biến lấy từ Adafruit. Đừng thêm SQLite hay PostgreSQL trừ khi nhóm quyết rõ.
 - Không chạy `code/board/yolobit.py` trên laptop. File đó là MicroPython, nạp bằng OhStem. Không sửa `code/board/board_main_backup.py`.
 - Không đọc, không in, không commit `code/.env`. Tên biến xem ở `code/.env.example`.
@@ -98,11 +98,12 @@ Phải in `OK`. Test mặt không được gọi đăng ký thật, vì lệnh �
 
 ## Việc nên làm tiếp
 
+Giọng nói (Phase 7) đã xong. Micro laptop, bốn lệnh tiếng Việt cố định cho đèn và quạt (bật/tắt), faster-whisper chạy offline, không LLM, không chạy trên board. Nút micro có trên web khi `WEB_DATA=gateway`. Ở `mock` nút đó chỉ giả lập, không mở mic. Chi tiết ở README mục 4.6 và `docs/plans/phase-7-giong-noi.md`.
+
 1. Đăng ký lại từng thành viên trên web, có làm bước kính nếu người đó lúc đeo lúc không. Mẫu cũ không tự tách hai kiểu.
 2. Buổi khác, ánh sáng phòng demo: chụp ảnh test thành viên và người lạ (`enroll <tên> --test`, tên lạ chưa có trong kho). Chạy `python -m yolohome.face.evaluate`. Nếu `.env` không ghi `FACE_THRESHOLD`, ngưỡng trong `threshold.json` sẽ được dùng thay cho 0,70. Đọc báo cáo trước khi khóa một số mới. Người lạ không được mở cửa. Thành viên vẫn nên qua được. Không qua thì nút cửa trên web là đường dự phòng, đừng hạ ngưỡng xuống dưới điểm của người lạ.
 3. Khi có board: quét đúng người thì cửa mở và tự đóng sau 10 giây. Quét người lạ thì cửa không mở, nút khóa cửa vẫn mở được.
-4. Phase 7, giọng nói: micro laptop, bộ lệnh tiếng Việt cố định cho đèn và quạt, không LLM, không chạy trên board. Thẻ giọng nói trên web hiện là chỗ chờ.
-5. Nhật ký lâu dài chỉ làm nếu nhóm muốn. Đồ án không bắt database. Đừng tạo feed mới để chứa log.
+4. Nhật ký lâu dài chỉ làm nếu nhóm muốn. Đồ án không bắt database. Đừng tạo feed mới để chứa log.
 
 ## Git
 
