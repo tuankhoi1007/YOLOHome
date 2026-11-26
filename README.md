@@ -31,7 +31,7 @@ Chọn đường của bạn, làm đúng các mục theo thứ tự:
 
 | Bạn muốn | Cần board? | Làm theo |
 | --- | --- | --- |
-| **Demo đầy đủ**: board đọc cảm biến, web hiện số, cảnh báo đổi đèn, điều khiển đèn / quạt / cửa | Có | 2.1 → 2.2 → 2.3 → 3.1 → 3.2 → 4.1 |
+| **Demo đầy đủ**: board đọc cảm biến, web hiện số, cảnh báo đổi đèn, điều khiển đèn / quạt / cửa, quét mặt, micro | Có | 2.1 → 2.2 → 2.3 → 3.1 → 3.2 → 4.1. Micro thật: thêm 4.6 |
 | Xem và thử giao diện web, không có board trong tay | Không | 2.1 → 2.2 → 4.2 |
 | Chạy gateway không có web, điều khiển bằng dashboard Adafruit | Có | 2.1 → 2.2 → 2.3 → 3.1 → 3.2 → 4.3 |
 
@@ -49,7 +49,7 @@ Lệnh viết cho **PowerShell** trên Windows. Dùng **Linux / macOS**: thay `.
 
 ### 2.1 Python và thư viện
 
-Cần **Python 3** (khuyên dùng 3.11 trở lên) và Internet. Thư viện nằm trong `code/requirements.txt`: `paho-mqtt`, `pyserial`, `python-dotenv`. Web không cần cài thêm gì (không Node, không npm).
+Cần **Python 3** (khuyên dùng 3.11 trở lên) và Internet. Thư viện nằm trong `code/requirements.txt`: `paho-mqtt`, `pyserial`, `python-dotenv`, `opencv-python`, `numpy`. Trang web không cần Node hay npm. Giọng nói cài thêm `code/requirements-voice.txt` (mục 4.6). Chưa cài thì web vẫn chạy, chỉ nút micro báo thiếu thư viện.
 
 **Windows** (PowerShell, đứng ở gốc repo):
 
@@ -87,7 +87,7 @@ Mở file `code/.env` bằng Notepad/VS Code (Linux: `nano`, `gedit`, VS Code...
 | `WEB_PASSWORD` | Mật khẩu **riêng** để đăng nhập web. Không dùng lại `AIO_KEY` |
 | `WEB_DATA` | `mock`, `gateway` hoặc `live` (xem bảng ở mục 4) |
 
-Các dòng còn lại (tên feed, ngưỡng mặc định, `WEB_PORT`...) để nguyên như `.env.example`.
+Các dòng còn lại (tên feed, ngưỡng mặc định, `WEB_PORT`...) để nguyên như `.env.example`. Biến khuôn mặt `FACE_*` giải thích ở mục 4.5. Biến giọng nói `VOICE_*` giải thích ở mục 4.6. Cả hai nhóm đã có giá trị mặc định trong `.env.example`.
 
 > **Bảo mật:** `.env` đã nằm trong `.gitignore`. Không commit, không gửi key lên nhóm chat, không chụp màn hình có key. Xin username/key từ trưởng nhóm qua tin nhắn riêng.
 
@@ -177,7 +177,7 @@ Dừng chương trình bằng `Ctrl+C`. Muốn đổi chế độ thì tắt ch�
 
 ### 4.1 Web cùng board (cách demo chính)
 
-Một lệnh duy nhất: web chạy luôn Module 1 + 2 + 3 (đọc board, gửi Adafruit, so ngưỡng, đổi đèn cảnh báo, điều khiển đèn / quạt / cửa), nút quét mặt (mục 4.5) và hiện số lên trình duyệt.
+Một lệnh duy nhất: web chạy luôn Module 1 + 2 + 3 (đọc board, gửi Adafruit, so ngưỡng, đổi đèn cảnh báo, điều khiển đèn / quạt / cửa), nút quét mặt (mục 4.5), nút micro (mục 4.6) và hiện số lên trình duyệt.
 
 1. Làm xong 3.2, OhStem đã ngắt kết nối.
 2. Trong `code/.env`: `WEB_DATA=gateway`, có `WEB_PASSWORD`, `COM_PORT` đúng.
@@ -189,7 +189,7 @@ Một lệnh duy nhất: web chạy luôn Module 1 + 2 + 3 (đọc board, gửi 
 
 4. Mở trình duyệt **trên chính laptop đó**: `http://127.0.0.1:8000`, đăng nhập bằng `WEB_PASSWORD`.
 
-Không cắm board cũng mở được trang: chương trình in `Khong co board` rồi vẫn phục vụ web. Nút **Quét mặt** hiện nếu webcam và model tải được. Đèn, quạt và cửa không phản hồi cho đến khi có cổng COM.
+Không cắm board cũng mở được trang: chương trình in `Khong co board` rồi vẫn phục vụ web. Nút **Quét mặt mở cửa** hiện khi `FACE_ENABLE=1` (mặc định) và OpenCV cùng mô hình tải được. Webcam mở lúc bấm quét, không phải lúc mở trang. `FACE_LIVENESS` mặc định `0` (tắt thử thách quay đầu). Nút micro cũng hiện ở chế độ này. Nghe mic thật thì làm mục 4.6. Đèn, quạt và cửa không phản hồi cho đến khi có cổng COM.
 
 Cửa sổ PowerShell in lần lượt các dòng kiểu:
 
@@ -213,7 +213,8 @@ Mo trinh duyet: http://127.0.0.1:8000
 - [ ] Hơ tay vào DHT20 cho vượt ngưỡng: web hiện thẻ đỏ "VƯỢT NGƯỠNG!", có thông báo góc phải; ma trận sáng hết, 4 LED RGB nháy đỏ; feed `canh-bao` có chữ `Nhiệt độ cao`. Bỏ tay ra: tất cả về bình thường.
 - [ ] Bấm **Cấu hình ngưỡng**, lưu ngưỡng nhiệt cao hơn số đang đo: feed `nguong-nhiet` đổi, board hết cảnh báo.
 - [ ] Bật đèn, đổi màu; kéo thanh quạt rồi thả; bấm mở cửa. Mỗi thiết bị phản ứng trong 3 giây, thẻ trên web và feed `den` / `quat` / `cua` khớp trạng thái thật. Cửa tự đóng sau 10 giây.
-- [ ] Nút **Quét mặt** (mục 4.5): đúng thành viên thì cửa mở, không khớp thì cửa giữ đóng và thẻ hiện lý do. Nút mở cửa bằng tay vẫn bấm được.
+- [ ] Nút **Quét mặt mở cửa** (mục 4.5): đúng thành viên thì cửa mở, không khớp thì cửa giữ đóng và thẻ hiện lý do. Nút mở cửa bằng tay vẫn bấm được. `FACE_ENABLE=0` hoặc thiếu OpenCV thì thẻ khuôn mặt tắt, nút cửa vẫn dùng được.
+- [ ] Nút micro (mục 4.6), sau khi cài `requirements-voice.txt`: nói "bật đèn", "tắt đèn", "bật quạt" hoặc "tắt quạt". Đèn hoặc quạt đổi sau khi board xác nhận. Câu khác không gửi lệnh.
 
 Đang có cảnh báo thì 4 LED luôn nháy đỏ, kể cả khi vừa bật đèn màu khác; hết cảnh báo chúng về màu đã chọn. Góc cửa và tốc độ quạt nằm ở đầu phần Module 3 trong `board/yolobit.py`: `ANGLE_CLOSE` 0, `ANGLE_OPEN` 90, `PWM_MAX` 1023, `SERVO_RELEASE_MS` 1500. Sửa trên OhStem rồi nạp lại nếu cửa không khép hoặc quạt đã quay hết tốc ở mức thấp.
 
@@ -224,20 +225,20 @@ Dùng để xem và thử giao diện khi không có board. Không gửi gì lê
 1. Trong `code/.env`: `WEB_DATA=mock` (mặc định) và có `WEB_PASSWORD`. Vẫn cần `AIO_USERNAME`, `AIO_KEY` có giá trị (chương trình kiểm tra lúc khởi động).
 2. Chạy `.\.venv\Scripts\python.exe -m yolohome`, mở `http://127.0.0.1:8000`.
 
-Ở chế độ này mọi thứ đều giả lập: cảm biến đổi nhẹ mỗi 3 giây; bật/tắt đèn, đổi màu, chỉnh tốc độ quạt, mở cửa (tự khóa sau 10 giây) đều chạy. Có các nút để thử:
+Ở chế độ này cảm biến, đèn, quạt, cửa và nút micro đều giả lập: cảm biến đổi nhẹ mỗi 3 giây; bật/tắt đèn, đổi màu, chỉnh tốc độ quạt, mở cửa (tự khóa sau 10 giây) đều chạy. Quét mặt không chạy ở `mock`. Có các nút để thử:
 
 | Nút | Thử điều gì |
 | --- | --- |
 | **Mô phỏng vượt ngưỡng nhiệt độ** (dưới thẻ cảm biến) | Nhiệt lên quá ngưỡng 30 giây: thẻ đỏ, đèn đỏ, thông báo |
 | **Test Offline** (trên header) | Mất kết nối: banner đỏ, thẻ thiết bị mờ, không gửi được lệnh |
-| Nút **micro** | Lần lượt các lệnh giọng nói "bật đèn", "tắt đèn", "bật quạt", "tắt quạt" |
+| Nút **micro** | Không mở mic. Lần lượt giả lập "bật đèn", "tắt đèn", "bật quạt", "tắt quạt" |
 
 ### 4.3 Các cách chạy khác
 
 | Lệnh | Khi nào dùng |
 | --- | --- |
 | `.\.venv\Scripts\python.exe -m yolohome.gateway` | Chạy Module 1 + 2 + 3 không có web (giống 4.1 nhưng không có trang web). In và gửi y hệt. Điều khiển thiết bị bằng dashboard Adafruit ở mục 2.2. |
-| `WEB_DATA=live` + `python -m yolohome` | Khi `python -m yolohome.gateway` đang chạy riêng (cửa sổ khác hoặc máy khác). Web chỉ đọc số từ Adafruit, mất kết nối nếu 45 giây không có số mới. Chưa điều khiển được đèn / quạt / cửa ở chế độ này. Không chạy chung với `WEB_DATA=gateway`. |
+| `WEB_DATA=live` + `python -m yolohome` | Khi `python -m yolohome.gateway` đang chạy riêng (cửa sổ khác hoặc máy khác). Web chỉ đọc số từ Adafruit, mất kết nối nếu 45 giây không có số mới. Chưa điều khiển được đèn / quạt / cửa. Quét mặt và micro cũng không có: cả hai chỉ chạy khi `WEB_DATA=gateway`. Không chạy chung với `WEB_DATA=gateway`. |
 | `.\.venv\Scripts\python.exe -m yolohome.module1` | Chỉ đẩy cảm biến lên Adafruit, không so ngưỡng, không đổi đèn. |
 | `.\.venv\Scripts\python.exe -m yolohome.module2` | Không cần board. Nghe số đang có trên Adafruit rồi cập nhật `canh-bao`. Tắt gateway trước. Thử: thêm một điểm vào `nhiet-do` lớn hơn ngưỡng trên Adafruit. |
 
@@ -277,7 +278,60 @@ AI chạy trên laptop, dùng webcam của laptop: YuNet (phát hiện mặt) + 
 
 Mở cửa: mỗi thành viên có một mẫu trung bình; trong 7 khung liên tiếp phải có 5 khung khớp **cùng một** thành viên với điểm ≥ ngưỡng. Điểm là độ giống cosine (1 là trùng hướng), không phải phần trăm. Ngưỡng lấy từ `threshold.json` do bước 4 chọn (cao hơn mọi người lạ trong nửa dữ liệu hiệu chỉnh, không thấp hơn 0,363); chưa chạy bước 4 thì dùng 0,70. Muốn siết hoặc nới tay thì ghi `FACE_THRESHOLD` trong `.env` (số này thắng cả file và mặc định). `FACE_LIVENESS=1` thêm thử thách quay đầu chống ảnh in (mặc định tắt). Biểu đồ ở bước 4 cần `pip install matplotlib`, không có thì bỏ qua biểu đồ.
 
-Trong gateway: `Gateway.start()` mở phần này; đúng thành viên thì gửi `DOOR:OPEN` qua Module 3 như lệnh từ web, nguồn `Khuôn mặt`, board tự đóng sau 10 s. Trên web (`WEB_DATA=gateway`) thẻ khuôn mặt có hai nút: **Quét mặt mở cửa** và **Đăng ký mới**. **Đăng ký mới** mở cửa sổ nhập tên không dấu và mật khẩu chủ nhà (`WEB_PASSWORD`). Đúng mật khẩu thì webcam mới mở trong một cửa sổ riêng. Các bước đăng ký nằm cạnh hình. Nhìn thẳng, quay trái, quay phải, lùi xa, rồi đổi kính. Không có kính thì bấm **Bỏ qua bước**. Nút **Bỏ qua bước** và **Hủy** nằm trong cửa sổ đó. Kết quả hiện trên thẻ và trong nhật ký. Lệnh dòng lệnh vẫn mở cửa sổ riêng và dùng phím S / Q. Sai mật khẩu năm lần trong một phút thì đăng nhập và đăng ký cùng bị khóa tạm. Chạy riêng `python -m yolohome.gateway` thì gõ `f` rồi Enter để quét; đăng ký từ dòng lệnh vẫn dùng lệnh ở trên. Thiếu OpenCV, thiếu mô hình hay `FACE_ENABLE=0` thì chỉ tắt phần này: thẻ FaceAI báo đang tắt, nút cửa trên web vẫn dùng được.
+Trong gateway: `Gateway.start()` mở phần này; đúng thành viên thì gửi `DOOR:OPEN` qua Module 3 như lệnh từ web, nguồn `Khuôn mặt`, board tự đóng sau 10 s. Trên web (`WEB_DATA=gateway`) thẻ khuôn mặt có hai nút: **Quét mặt mở cửa** và **Đăng ký mới**. **Đăng ký mới** mở cửa sổ nhập tên không dấu và mật khẩu chủ nhà (`WEB_PASSWORD`). Đúng mật khẩu thì webcam mới mở trong một cửa sổ riêng. Các bước đăng ký nằm cạnh hình. Nhìn thẳng, quay trái, quay phải, lùi xa, rồi đổi kính. Không có kính thì bấm **Bỏ qua bước**. Nút **Bỏ qua bước** và **Hủy** nằm trong cửa sổ đó. Kết quả hiện trên thẻ và trong nhật ký. Lệnh dòng lệnh vẫn mở cửa sổ riêng và dùng phím S / Q. Sai mật khẩu năm lần trong một phút thì đăng nhập và đăng ký cùng bị khóa tạm. Chạy riêng `python -m yolohome.gateway` thì gõ `f` rồi Enter để quét; đăng ký từ dòng lệnh vẫn dùng lệnh ở trên. Mặc định `FACE_ENABLE=1`. Thiếu OpenCV, thiếu mô hình hay `FACE_ENABLE=0` thì chỉ tắt phần này: thẻ báo cần `WEB_DATA=gateway` và `FACE_ENABLE=1`, nút cửa trên web vẫn dùng được. `FACE_LIVENESS` mặc định `0`. Đặt `1` thì phải quay đầu đủ `FACE_LIVE_SPREAD` (mặc định 0,30) mới mở cửa.
+
+### 4.6 Giọng nói tiếng Việt (Phase 7)
+
+Đã gắn vào web. Laptop nghe mic bằng **faster-whisper**, chạy offline sau khi mô hình đã có trên máy. Không dùng LLM. Không chạy trên Yolo:Bit. Đúng bốn lệnh: **bật đèn**, **tắt đèn**, **bật quạt**, **tắt quạt**. Cửa không có lệnh giọng nói.
+
+Người làm tiếp đọc `docs/plans/phase-7-giong-noi.md` khi cần tải PhoWhisper hoặc đo trên kit. Phần dưới đủ để cài và chạy.
+
+**Cài thêm**, một lần. Web cảm biến vẫn chạy nếu bỏ qua bước này.
+
+Từ gốc repo:
+
+```text
+pip install -r code/requirements-voice.txt
+```
+
+Đứng trong `code`, dùng venv của mục 2.1:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r requirements-voice.txt
+```
+
+Linux / macOS: `./.venv/bin/python -m pip install -r requirements-voice.txt`
+
+**Thử mic**, không cần board, không cần Adafruit. Đứng trong `code`:
+
+```text
+python -m yolohome.voice.probe
+```
+
+Với venv: `.\.venv\Scripts\python.exe -m yolohome.voice.probe` (Linux / macOS: `./.venv/bin/python -m yolohome.voice.probe`). Nhấn Enter, nói một trong bốn lệnh. Probe in câu nghe được và lệnh dự kiến. Gõ `q` để thoát. Lần đầu, nếu chưa có mô hình và có Internet, probe có thể tải Whisper `small`. Web không tải mô hình: chỉ dùng file đã có sẵn trên máy.
+
+Trên web:
+
+| `WEB_DATA` | Nút micro |
+| --- | --- |
+| `gateway` | Mic thật. Bấm một lần, nói một lệnh. Đèn bật lại màu đã chọn, quạt bật lại tốc độ đã chọn. Câu ngoài bốn lệnh không gửi gì. |
+| `mock` | Không mở mic. Mỗi lần bấm lấy lần lượt một câu trong bốn lệnh, để thử giao diện. |
+| `live` | Không có. Thẻ bảo chạy `WEB_DATA=gateway`. |
+
+`VOICE_ENABLE=0` thì gateway không mở mic. Nút đèn và quạt vẫn dùng được. Terminal in `Giong noi: tat (VOICE_ENABLE=0)`. Khi bật và nạp xong, terminal in `Giong noi: san sang (...)`.
+
+Biến trong `code/.env` (mẫu ở `.env.example`, đọc bởi `code/yolohome/config.py`):
+
+| Biến | Mặc định | Ý nghĩa |
+| --- | --- | --- |
+| `VOICE_ENABLE` | `1` | `1` bật mic trên web. `0` tắt mic. Nút đèn và quạt vẫn dùng được. |
+| `VOICE_MODEL` | trống | Trống: nếu thư mục PhoWhisper có `model.bin` thì dùng thư mục đó, chưa có thì `small` (Whisper small). Có thể ghi `small` hoặc đường dẫn thư mục CTranslate2. |
+| `VOICE_MIC` | trống | Trống: mic mặc định. Số: thứ tự trong `python -m sounddevice`. Chữ: một phần tên mic. |
+| `VOICE_SECONDS` | `3` | Số giây thu mỗi lượt. Số nhỏ hơn 1 được đưa lên 1. |
+| `VOICE_VAD` | `1` | `1` bật bộ lọc tiếng nói. `0` tắt, chỉ để chẩn đoán. |
+| `VOICE_HINTS` | `0` | `1` gợi ý hai từ "đèn" và "quạt" cho Whisper (giống probe `--hint-devices`). |
+
+Thư mục PhoWhisper khi `VOICE_MODEL` để trống: `%LOCALAPPDATA%\YOLOHome\models\phowhisper-small-ct2` trên Windows. Không có biến `LOCALAPPDATA` (Linux, macOS) thì là `~/YOLOHome/models/phowhisper-small-ct2`. Cách tạo thư mục đó nằm ở `docs/plans/phase-7-giong-noi.md`, bước 2.
 
 ## 5. Dùng web
 
@@ -288,16 +342,17 @@ Trong gateway: `Gateway.start()` mở phần này; đúng thành viên thì gử
 | `/login.html` | Đăng nhập bằng `WEB_PASSWORD` |
 | `/components.html` | Xem nút, nhãn, công tắc theo Figma (cho người làm giao diện) |
 
-Những gì có dữ liệu thật ở chế độ `gateway` / `live`:
+Những gì web hiện, theo `WEB_DATA`:
 
 | Phần | Trạng thái |
 | --- | --- |
-| Nhiệt độ, độ ẩm, ánh sáng, cảnh báo, đèn LED cảnh báo | Có (Module 1–2) |
-| Cấu hình ngưỡng | Có, lưu thẳng lên feed `nguong-*`. Feed nào tài khoản chưa có thì web báo rõ, không tự tạo |
-| Nhật ký cảm biến | Có, lấy lịch sử từ Adafruit mỗi lần mở web |
-| Nhật ký điều khiển, cảnh báo | Chỉ trong RAM, tắt web là mất (nơi lưu lâu dài chưa chốt, D5) |
-| Đèn, quạt, cửa | Có ở `gateway`: thẻ chỉ đổi khi board xác nhận; cùng một thiết bị phải cách nhau 2 giây. Ở `live`: "Chưa có" |
-| Khuôn mặt, giọng nói | "Chưa có": chờ Phase 6, Phase 7 |
+| Nhiệt độ, độ ẩm, ánh sáng, cảnh báo, đèn LED cảnh báo | Có ở `gateway` và `live` (Module 1–2). Ở `mock`: số giả lập |
+| Cấu hình ngưỡng | Ở `gateway` và `live`: lưu thẳng lên feed `nguong-*`. Feed nào tài khoản chưa có thì web báo rõ, không tự tạo. Ở `mock`: chỉ đổi trong phiên web |
+| Nhật ký cảm biến | Ở `gateway` và `live`: lấy lịch sử từ Adafruit mỗi lần mở web. Ở `mock`: số giả lập trong RAM |
+| Nhật ký điều khiển, cảnh báo, khuôn mặt, giọng nói | Chỉ trong RAM, tắt web là mất (nơi lưu lâu dài chưa chốt, D5) |
+| Đèn, quạt, cửa | Có ở `gateway`: thẻ chỉ đổi khi board xác nhận; cùng một thiết bị phải cách nhau 2 giây. Ở `mock`: giả lập. Ở `live`: chưa điều khiển được |
+| Khuôn mặt | Có ở `gateway` khi `FACE_ENABLE=1` (mặc định) và OpenCV cùng mô hình tải được: **Quét mặt mở cửa**, **Đăng ký mới** (mục 4.5). `FACE_LIVENESS` mặc định `0`. Ở `mock` và `live`: thẻ báo cần `WEB_DATA=gateway` |
+| Giọng nói | Có ở `gateway`: nút micro, faster-whisper offline, bốn lệnh bật/tắt đèn và bật/tắt quạt (mục 4.6). `VOICE_ENABLE` mặc định `1`. Ở `mock`: nút micro giả lập, không mở mic. Ở `live`: không có |
 
 Sai mật khẩu 5 lần trong 1 phút thì bị chặn 1 phút. Phiên đăng nhập giữ 12 giờ; tắt `python -m yolohome` thì phải đăng nhập lại.
 
@@ -329,6 +384,9 @@ Sai mật khẩu 5 lần trong 1 phút thì bị chặn 1 phút. Phiên đăng n
 | Web báo mất kết nối (`gateway`) | Board không gửi số quá 10 giây. Xem PowerShell có dòng `Nhan: T:...` không. |
 | Web báo mất kết nối (`live`) | `python -m yolohome.gateway` chưa chạy hoặc board không gửi số. |
 | `Sai quá nhiều lần` trên trang đăng nhập | Đợi 1 phút rồi thử lại. |
+| Thẻ micro báo thiếu thư viện (`requirements-voice.txt`) | Đứng trong `code`: `python -m pip install -r requirements-voice.txt`. Từ gốc repo: `pip install -r code/requirements-voice.txt`. Nút đèn và quạt vẫn dùng được. |
+| `Chưa có mô hình` hoặc thẻ micro không chuyển sang sẵn sàng | Web chỉ nạp mô hình đã có trên máy. Tải một lần khi có mạng theo `docs/plans/phase-7-giong-noi.md`, bước 2, rồi chạy lại. |
+| `Giọng nói đang tắt (VOICE_ENABLE=0 trong .env)` | Đặt `VOICE_ENABLE=1` rồi chạy lại web. |
 | `py` không phải là lệnh | Chưa cài Python cho Windows từ [python.org](https://www.python.org/downloads/), nhớ tick "Add to PATH". |
 
 ---
@@ -370,15 +428,17 @@ flowchart LR
 | --- | --- |
 | `board/yolobit.py` | Trên board (dán vào OhStem). Đọc cảm biến, vẽ đèn, nhận lệnh đèn / quạt / cửa và trả `ACK:`. |
 | `board/board_main_backup.py` | Bản thử cũ. Không nạp, không sửa. |
-| `python -m yolohome` | Laptop. Web + (khi `WEB_DATA=gateway`) Module 1–3. **Lệnh chính khi demo.** File: `yolohome/web/server.py`. |
+| `python -m yolohome` | Laptop. Web + (khi `WEB_DATA=gateway`) Module 1–3, quét mặt và micro. **Lệnh chính khi demo.** File: `yolohome/web/server.py`. |
 | `python -m yolohome.gateway` | Laptop. Module 1 + 2 + 3 không có web. Web dùng lại đúng vòng này. |
 | `python -m yolohome.module1`, `module2` | Laptop. Chạy riêng từng module để thử. |
 | `python -m yolohome.face.enroll`, `.unlock`, `.evaluate` | Laptop. Đăng ký mặt, thử quét, đánh giá (4.5). Code ở `yolohome/face/`. |
+| `python -m yolohome.voice.probe` | Laptop. Thử nghe bốn lệnh, không cần board (4.6). Code ở `yolohome/voice/`. |
 | `yolohome/config.py` | Không chạy riêng. Đọc `code/.env`, nối Adafruit. |
 | `yolohome/web/mock.py`, `live.py`, `gateway.py` | Không chạy riêng. Nguồn dữ liệu cho web theo `WEB_DATA`. |
 | `web/` | HTML, CSS, JS của web. Không cần build. |
 | `tests/` | Kiểm tra tự động (xem dưới). |
 | `requirements.txt` | Thư viện Python cho laptop (2.1). |
+| `requirements-voice.txt` | Thư viện giọng nói: faster-whisper, sounddevice. Cài thêm sau `requirements.txt` (4.6). |
 | `.env.example` | Mẫu cấu hình. Copy thành `.env`, cùng thư mục `code/`. |
 
 ### Chạy kiểm tra tự động
@@ -402,12 +462,12 @@ Phải in `OK`. Chạy trước khi đẩy code lên nhánh chung.
 | Module 1 — thu thập môi trường | Đã chạy (board → laptop → Adafruit → web). Chờ chạy lại toàn bộ trên board để đóng Gate 1 |
 | Module 2 — ngưỡng và cảnh báo | Đã chạy (LED cảnh báo, `canh-bao`, chỉnh ngưỡng trên web). Chờ Gate 1 như trên |
 | Module 3 — điều khiển đèn, quạt, cửa | Đã viết (gateway, board, web ở `gateway`, test tự động). Chưa chạy lại trên board sau lần hiệu chỉnh góc servo và tốc độ quạt |
-| Module 4 — nhật ký | Một phần: lịch sử cảm biến từ Adafruit; nhật ký điều khiển/khuôn mặt chờ D5 |
+| Module 4: nhật ký | Một phần: lịch sử cảm biến từ Adafruit. Nhật ký điều khiển, khuôn mặt và giọng nói chỉ nằm trong RAM (chờ D5) |
 | Module 5 — giao diện | Web đủ màn hình. Dashboard Adafruit dựng theo mục 2.2 |
-| Nhận diện khuôn mặt | Nút **Quét mặt** trên web khi `WEB_DATA=gateway` (mục 4.5). Chưa có số đánh giá trên dữ liệu thật của nhóm. Cửa luôn mở được bằng nút trên web |
-| Giọng nói tiếng Việt | Chưa có (Phase 7). Lệnh cố định, không dùng LLM |
+| Nhận diện khuôn mặt | Nút **Quét mặt mở cửa** và **Đăng ký mới** trên web khi `WEB_DATA=gateway` và `FACE_ENABLE=1` (mặc định). `FACE_LIVENESS` mặc định `0` (tắt). Mục 4.5. Chưa có số đánh giá trên dữ liệu thật của nhóm. Cửa luôn mở được bằng nút trên web |
+| Giọng nói tiếng Việt | Đã tích hợp (mục 4.6): faster-whisper chạy offline trên laptop, bốn lệnh "bật đèn", "tắt đèn", "bật quạt", "tắt quạt", nút micro trên web. Không dùng LLM. `VOICE_ENABLE` mặc định `1` |
 | LCD 16x2 | Chỉ có trong bản thử `board/board_main_backup.py` |
 
-Còn mở: nhật ký lưu lâu (Module 4), giọng nói tiếng Việt. Bơm, ẩm đất và siêu âm không dùng.
+Còn mở: nhật ký lưu lâu (Module 4). Bơm, ẩm đất và siêu âm không dùng.
 
 Tài liệu kit: [OhStem App](https://app.ohstem.vn/) · [OhStem Education Wiki](https://docs.ohstem.vn/en/latest/tai_lieu_stem/smart_home.html).
