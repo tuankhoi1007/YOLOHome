@@ -7,7 +7,7 @@ Sau khi hoàn thành hướng dẫn, bạn có thể bấm biểu tượng micro
 ## Tài liệu và thiết bị cần chuẩn bị
 
 - **Đọc trước khi code.** Trong giáo trình, đọc chương 19 (trang 159–165) để hiểu cách nhận lời nói trên máy tính, rồi đọc chương 29 (trang 233–238), đặc biệt hình 29.2 về đường đi của lệnh và hình 29.7 về câu ngoài phạm vi. Các kênh V10/V13 thuộc ví dụ OhStem. Dự án của nhóm đã có đường điều khiển riêng qua Gateway. File PDF giáo trình YoloHome AIoT nằm ngoài repo, ở thư mục DADN trên máy của nhóm. Phạm vi đề tài xem README.
-- **Mở khi tích hợp.** README mục 2 và 4 hướng dẫn cấu hình máy, COM, Adafruit và các chế độ web. README mục 7 mô tả giá trị đèn, tốc độ quạt, thời gian chờ và ACK (thông báo board đã xử lý lệnh). Checklist thử kit nằm ở README mục 4.1. Trạng thái đã làm và chưa làm nằm ở README mục 8. [README](../../README.md)
+- **Mở khi tích hợp.** [docs/ky-thuat.md](../ky-thuat.md) mục 2 và 4 hướng dẫn cấu hình máy, COM, Adafruit và các chế độ web. Mục 7 mô tả giá trị đèn, tốc độ quạt, thời gian chờ và ACK (thông báo board đã xử lý lệnh). Checklist thử kit nằm ở mục 4.1. Trạng thái đã làm và chưa làm nằm ở mục 8.
 - **Mở khi làm việc với âm thanh.** Faster Whisper dùng mô hình `small` đa ngôn ngữ, chỉ định tiếng Việt bằng `language="vi"` và chạy CPU với `int8`. Thư viện `sounddevice` đọc mic trên Windows. [Faster Whisper](https://github.com/SYSTRAN/faster-whisper) · [API RawInputStream](https://python-sounddevice.readthedocs.io/en/latest/api/raw-streams.html)
 - **Chuẩn bị cho demo.** Laptop, mic, kit đã nạp chương trình của nhóm, cáp USB truyền dữ liệu, đèn RGB P14 và quạt P1. Tải thư viện và mô hình khi có Internet. Sau đó có thể kiểm tra nhận dạng offline, còn demo đầy đủ có đồng bộ Adafruit cần mạng.
 
@@ -154,7 +154,7 @@ Với `WEB_DATA=mock`, nút micro đi qua đúng các bước như trên nhưng 
 ## 7. Chạy với board thật
 
 1. Trong `code`, chạy `& $python -m unittest discover -s tests -t .`. Kiểm tra cả test vừa bổ sung cho bộ lệnh và lượt nghe.
-2. Nạp chương trình board và xác định COM theo README. Ngắt OhStem khỏi cổng COM. Trong `code/.env` đặt `WEB_DATA=gateway`, đúng `COM_PORT`, thông tin Adafruit và `WEB_PASSWORD`. Nạp thử mô hình offline theo bước 3. Khi cần tạo file lần đầu, dùng `if (!(Test-Path .env)) { Copy-Item .env.example .env }`. [Khởi động và kiểm tra phần cứng](../../README.md)
+2. Nạp chương trình board và xác định COM theo [docs/ky-thuat.md](../ky-thuat.md) mục 3. Ngắt OhStem khỏi cổng COM. Trong `code/.env` đặt `WEB_DATA=gateway`, đúng `COM_PORT`, thông tin Adafruit và `WEB_PASSWORD`. Nạp thử mô hình offline theo bước 3. Khi cần tạo file lần đầu, dùng `if (!(Test-Path .env)) { Copy-Item .env.example .env }`.
 3. Chạy `& $python -m yolohome`. Mở địa chỉ mà terminal in (mặc định `http://127.0.0.1:8000`), đăng nhập. Dùng **nút tay** bật/tắt đèn và quạt một vòng. Nếu nút tay chưa điều khiển được, kiểm tra COM, nguồn và ACK theo checklist Gate 3 trước khi đánh giá giọng nói.
 4. Tắt quạt bằng nút tay, đợi ít nhất 2 giây, bấm mic, nói “bật quạt”. Quan sát câu máy nghe, quạt có quay và thẻ quạt có cập nhật sau xác nhận. Lặp lại với “tắt quạt”, “bật đèn”, “tắt đèn”. Đèn RGB nhấp nháy đỏ khi có cảnh báo môi trường, nên thử màu bật/tắt khi cảnh báo đã hết. Nếu web báo 429, chờ ít nhất 2 giây trước lệnh tiếp theo cho cùng thiết bị.
 5. Giữ nguyên màn hình, thử im lặng và “mở cửa”. Kiểm tra thiết bị không nhận lệnh. Thử trên tài khoản chưa tải mô hình để kiểm tra thông báo lỗi nạp offline. Giao diện cần báo lỗi voice và vẫn cho bật/tắt tay.
